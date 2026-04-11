@@ -55,7 +55,7 @@ app.use('/api/auth', authLimiter);
 app.use('/api', generalLimiter);
 
 // Health Check
-app.get('/health', async (req, res) => {
+app.get('/health', async (req: express.Request, res: express.Response) => {
   try {
     await prisma.$executeRaw`SELECT 1`;
     res.json({ 
@@ -82,7 +82,7 @@ app.use('/api/expense-categories', expenseCategoryRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
 
-app.get('/api/logs', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
+app.get('/api/logs', authenticate, authorize('SUPER_ADMIN'), async (req: express.Request, res: express.Response) => {
   const logs = await prisma.auditLog.findMany({
     take: 100,
     orderBy: { createdAt: 'desc' },
@@ -92,7 +92,7 @@ app.get('/api/logs', authenticate, authorize('SUPER_ADMIN'), async (req, res) =>
 });
 
 // Basic Route
-app.get('/', (req, res) => {
+app.get('/', (req: express.Request, res: express.Response) => {
   res.json({ message: 'College CMS API stays active!' });
 });
 

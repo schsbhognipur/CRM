@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/axios';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   User, 
   Phone, 
@@ -15,6 +15,7 @@ import {
   Camera,
   Download,
   ChevronLeft,
+  ChevronRight,
   Briefcase,
   IdCard,
   Hash,
