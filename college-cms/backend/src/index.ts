@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import https from 'https';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
@@ -99,6 +100,18 @@ app.get('/', (req: express.Request, res: express.Response) => {
 // Start Server
 const server = app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
+    
+    // Keep-Alive Mechanism (Self-Ping every 14 minutes)
+    const url = process.env.RENDER_EXTERNAL_URL;
+    if (url && url.startsWith('https')) {
+      setInterval(() => {
+        https.get(`${url}/health`, (res) => {
+          console.log(`📡 SCHS Pulse: Status ${res.statusCode} | ✅ Testing Done.`);
+        }).on('error', (err) => {
+          console.error('❌ Keep-Alive Pulse Error');
+        });
+      }, 14 * 60 * 1000); 
+    }
 });
 
 // Graceful Shutdown
