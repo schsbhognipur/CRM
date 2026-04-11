@@ -4,6 +4,7 @@ import prisma from '../utils/prisma';
 import { createAuditLog } from '../utils/audit';
 import PDFDocument from 'pdfkit';
 import cache from '../utils/cache';
+import { Prisma } from '@prisma/client';
 
 // Receipt Number Helper
 const generateReceiptNo = async (tx: any) => {
@@ -19,8 +20,9 @@ const generateReceiptNo = async (tx: any) => {
 
   let sequence = 1;
   if (lastTransaction) {
-    const lastSeq = parseInt(lastTransaction.receiptNo.split('-')[2]);
-    sequence = lastSeq + 1;
+    const parts = lastTransaction.receiptNo.split('-');
+    const lastSeq = parseInt(parts[parts.length - 1]);
+    sequence = isNaN(lastSeq) ? 1 : lastSeq + 1;
   }
 
   return `RCP-${currentYear}-${sequence.toString().padStart(5, '0')}`;
@@ -40,7 +42,7 @@ export const getTransactions = async (req: Request, res: Response) => {
 
   const skip = (Number(page) - 1) * Number(limit);
 
-  const where: any = {
+  const where: Prisma.TransactionWhereInput = {
     ...(type && { type: type as any }),
     ...(subType && { subType: subType as any }),
     ...(studentId && { studentId: String(studentId) }),
@@ -116,13 +118,13 @@ export const recordFeePayment = async (req: Request, res: Response) => {
           type: 'CREDIT',
           subType: 'FEE_PAYMENT',
           amount: data.amount,
-          studentId: studentFee.studentId,
-          studentFeeId: data.studentFeeId,
+          student: { connect: { id: studentFee.studentId } },
+          studentFee: { connect: { id: data.studentFeeId } },
           paymentMode: data.paymentMode,
           referenceNo: data.referenceNo,
           transactionDate: data.transactionDate ? new Date(data.transactionDate) : new Date(),
           receiptNo,
-          recordedById: req.user!.id,
+          recordedBy: { connect: { id: req.user!.id } },
           remarks: data.remarks
         }
       });
@@ -144,7 +146,7 @@ export const recordFeePayment = async (req: Request, res: Response) => {
       // 4. Create Receipt
       const receipt = await tx.receipt.create({
         data: {
-          transactionId: transaction.id,
+          transaction: { connect: { id: transaction.id } },
           receiptNo: transaction.receiptNo,
           issuedTo: studentFee.student.name,
           amount: data.amount
@@ -185,7 +187,7 @@ export const recordExpense = async (req: Request, res: Response) => {
   try {
     const data = expenseSchema.parse(req.body);
 
-    const receiptNo = `EXP-${Date.now()}`; // Just a unique marker for internal tracking
+    const receiptNo = `EXP-${Date.now()}`; 
 
     const transaction = await prisma.transaction.create({
       data: {
@@ -193,12 +195,12 @@ export const recordExpense = async (req: Request, res: Response) => {
         subType: 'EXPENSE',
         amount: data.amount,
         description: data.description,
-        expenseCategoryId: data.expenseCategoryId,
+        expenseCategory: { connect: { id: data.expenseCategoryId } },
         paymentMode: data.paymentMode,
         referenceNo: data.referenceNo,
         transactionDate: data.transactionDate ? new Date(data.transactionDate) : new Date(),
-        receiptNo, // Every transaction in schema needs a unique receiptNo
-        recordedById: req.user!.id,
+        receiptNo, 
+        recordedBy: { connect: { id: req.user!.id } },
         remarks: data.remarks,
       }
     });
@@ -245,12 +247,11 @@ export const getExpenseSummary = async (req: Request, res: Response) => {
             })
         ]);
 
-        // Get category names
         const categories = await prisma.expenseCategory.findMany();
         const categoryMap = Object.fromEntries(categories.map(c => [c.id, c.name]));
 
         const byCategoryFormatted = byCategory.map(bc => ({
-            categoryName: categoryMap[bc.expenseCategoryId!] || 'Other',
+            categoryName: bc.expenseCategoryId ? (categoryMap[bc.expenseCategoryId] || 'Other') : 'Other',
             total: bc._sum.amount,
             count: bc._count.id
         }));
@@ -332,11 +333,11 @@ export const generateReceiptPDF = async (req: Request, res: Response) => {
     
     doc.pipe(res);
 
-    doc.fontSize(20).text('SANSKRITI COLLEGE', { align: 'center' });
-    doc.fontSize(10).text('College Code: 1234 • Affiliated to Example University', { align: 'center' });
+    doc.fontSize(20).text('SCHS PHARMACY COLLEGE', { align: 'center' });
+    doc.fontSize(10).text('Institutional Management System • Fiscal Terminal', { align: 'center' });
     doc.moveDown();
     
-    doc.fontSize(14).text('PAYMENT RECEIPT', { align: 'center', underline: true });
+    doc.fontSize(14).text('FEE COLLECTION RECEIPT', { align: 'center', underline: true });
     doc.moveDown();
 
     doc.fontSize(12);
@@ -346,13 +347,13 @@ export const generateReceiptPDF = async (req: Request, res: Response) => {
 
     doc.rect(50, doc.y, 500, 150).stroke();
     const startY = doc.y + 10;
-    doc.text(`Received with thanks from:`, 60, startY);
+    doc.text(`Received with gratitude from:`, 60, startY);
     doc.fontSize(14).font('Helvetica-Bold').text(tx.student?.name.toUpperCase() || 'N/A', 60, startY + 20);
     doc.fontSize(12).font('Helvetica').text(`Enrollment No: ${tx.student?.enrollmentNo}`, 60, startY + 40);
-    doc.text(`Course: ${tx.student?.course.name}`, 60, startY + 60);
+    doc.text(`Academic Unit: ${tx.student?.course.name}`, 60, startY + 60);
     
     doc.moveDown(4);
-    doc.fontSize(16).text(`AMOUNT RECEIVED: ₹${tx.amount}`, { align: 'right' });
+    doc.fontSize(16).text(`AMOUNT RECEIVED: ₹${tx.amount.toLocaleString()}`, { align: 'right' });
     doc.moveDown();
 
     doc.fontSize(10);
@@ -361,10 +362,11 @@ export const generateReceiptPDF = async (req: Request, res: Response) => {
     doc.moveDown(2);
 
     doc.text('--------------------------------', 400, doc.y);
-    doc.text('Authorised Signatory', 410, doc.y + 15);
+    doc.text('Authorized Intelligence Officer', 380, doc.y + 15);
 
     doc.end();
   } catch (error) {
-    res.status(500).json({ message: 'Error generating PDF' });
+    console.error(error);
+    res.status(500).json({ message: 'Error generating PDF report' });
   }
 };

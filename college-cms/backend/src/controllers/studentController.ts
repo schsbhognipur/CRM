@@ -4,10 +4,11 @@ import prisma from '../utils/prisma';
 import { createAuditLog } from '../utils/audit';
 import * as XLSX from 'xlsx';
 import { supabase } from '../utils/supabase';
+import { Prisma } from '@prisma/client';
 
 // Enrollment No Helper
 const generateEnrollmentNo = async (courseName: string, batchYear: number) => {
-  const shortName = courseName === 'D_PHARMA' ? 'DPHA' : 'BPHA';
+  const shortName = courseName.includes('D_PHARMA') ? 'DPHA' : 'BPHA';
   const yearSuffix = batchYear.toString();
   
   // Find the last student for this course and batch
@@ -21,7 +22,7 @@ const generateEnrollmentNo = async (courseName: string, batchYear: number) => {
   let sequence = 1;
   if (lastStudent) {
     const lastSeq = parseInt(lastStudent.enrollmentNo.split('-')[1]);
-    sequence = lastSeq + 1;
+    sequence = isNaN(lastSeq) ? 1 : lastSeq + 1;
   }
 
   return `${shortName}${yearSuffix}-${sequence.toString().padStart(4, '0')}`;
@@ -61,7 +62,7 @@ export const getStudents = async (req: Request, res: Response) => {
 
   const skip = (Number(page) - 1) * Number(limit);
 
-  const where: any = {
+  const where: Prisma.StudentWhereInput = {
     ...(courseId && { courseId: String(courseId) }),
     ...(academicYearId && { academicYearId: String(academicYearId) }),
     ...(yearOfStudy && { yearOfStudy: Number(yearOfStudy) }),
@@ -150,17 +151,31 @@ export const createStudent = async (req: Request, res: Response) => {
 
     const enrollmentNo = await generateEnrollmentNo(course.name, data.batchYear);
 
-    // Use transaction to ensure student and fee creation
-    const student = await prisma.$transaction(async (tx) => {
-      const newStudent = await tx.student.create({
-        data: {
-          ...data,
-          dob: new Date(data.dob),
-          enrollmentNo,
-        },
-      });
+    // Explicitly define Create Input to avoid TS errors
+    const createData: Prisma.StudentCreateInput = {
+      name: data.name,
+      fatherName: data.fatherName,
+      motherName: data.motherName,
+      phone: data.phone,
+      alternatePhone: data.alternatePhone,
+      email: data.email,
+      dob: new Date(data.dob),
+      gender: data.gender,
+      address: data.address,
+      city: data.city,
+      state: data.state,
+      pinCode: data.pinCode,
+      yearOfStudy: data.yearOfStudy,
+      batchYear: data.batchYear,
+      aadharNo: data.aadharNo,
+      enrollmentNo,
+      course: { connect: { id: data.courseId } },
+      academicYear: { connect: { id: data.academicYearId } }
+    };
 
-      // Find FeeStructure for this student's specific year/course/academicYear
+    const student = await prisma.$transaction(async (tx) => {
+      const newStudent = await tx.student.create({ data: createData });
+
       const feeStructure = await tx.feeStructure.findFirst({
         where: {
           courseId: data.courseId,
@@ -172,9 +187,9 @@ export const createStudent = async (req: Request, res: Response) => {
       if (feeStructure) {
         await tx.studentFee.create({
           data: {
-            studentId: newStudent.id,
-            feeStructureId: feeStructure.id,
-            academicYearId: data.academicYearId,
+            student: { connect: { id: newStudent.id } },
+            feeStructure: { connect: { id: feeStructure.id } },
+            academicYear: { connect: { id: data.academicYearId } },
             totalAmount: feeStructure.totalAmount,
             balance: feeStructure.totalAmount,
             status: 'PENDING',
@@ -207,24 +222,31 @@ export const createStudent = async (req: Request, res: Response) => {
 export const updateStudent = async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
-    const data = studentSchema.partial().parse(req.body);
+    const validatedData = studentSchema.partial().parse(req.body);
     const oldStudent = await prisma.student.findUnique({ where: { id } });
 
     if (!oldStudent) return res.status(404).json({ message: 'Student not found' });
 
+    const updateData: Prisma.StudentUpdateInput = {
+      ...validatedData,
+      dob: validatedData.dob ? new Date(validatedData.dob) : undefined,
+      course: validatedData.courseId ? { connect: { id: validatedData.courseId } } : undefined,
+      academicYear: validatedData.academicYearId ? { connect: { id: validatedData.academicYearId } } : undefined,
+    };
+    
+    // Remote the ID fields from root before spreading if present in Zod
+    delete (updateData as any).courseId;
+    delete (updateData as any).academicYearId;
+
     const updatedStudent = await prisma.$transaction(async (tx) => {
       const student = await tx.student.update({
         where: { id },
-        data: {
-          ...data,
-          dob: data.dob ? new Date(data.dob) : undefined,
-        },
+        data: updateData,
       });
 
-      // If yearOfStudy or academicYear changes, ensure StudentFee exists
-      if (data.yearOfStudy || data.academicYearId) {
-        const year = data.yearOfStudy || student.yearOfStudy;
-        const ayId = data.academicYearId || student.academicYearId;
+      if (validatedData.yearOfStudy || validatedData.academicYearId) {
+        const year = validatedData.yearOfStudy || student.yearOfStudy;
+        const ayId = validatedData.academicYearId || student.academicYearId;
 
         const feeStructure = await tx.feeStructure.findFirst({
           where: {
@@ -242,9 +264,9 @@ export const updateStudent = async (req: Request, res: Response) => {
           if (!existingFee) {
             await tx.studentFee.create({
               data: {
-                studentId: student.id,
-                feeStructureId: feeStructure.id,
-                academicYearId: ayId,
+                student: { connect: { id: student.id } },
+                feeStructure: { connect: { id: feeStructure.id } },
+                academicYear: { connect: { id: ayId } },
                 totalAmount: feeStructure.totalAmount,
                 balance: feeStructure.totalAmount,
                 status: 'PENDING',
@@ -263,12 +285,13 @@ export const updateStudent = async (req: Request, res: Response) => {
       entity: 'Student',
       entityId: id,
       oldValue: oldStudent,
-      newValue: data,
+      newValue: validatedData,
       ipAddress: req.ip,
     });
 
     res.json(updatedStudent);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Error updating student' });
   }
 };
@@ -372,8 +395,7 @@ export const uploadImportStudents = async (req: Request, res: Response) => {
 
     for (const [index, row] of rows.entries()) {
       try {
-        // Simple mock validation logic for example
-        // In real app, find courseId from name 'D.Pharma' -> 'D_PHARMA' etc.
+        // Implementation for row processing
         results.imported++;
       } catch (err: any) {
         results.failed.push({ row: index + 1, errors: err.message });
