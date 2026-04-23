@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { 
-  getFeeComponents, 
-  createFeeComponent, 
-  updateFeeComponent 
+   getFeeComponents, 
+   createFeeComponent, 
+   updateFeeComponent 
 } from '../controllers/feeComponentController';
 import { authenticate } from '../middleware/authenticate';
 import { authorize } from '../middleware/authorize';

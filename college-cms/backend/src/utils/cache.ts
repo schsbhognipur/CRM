@@ -1,6 +1,6 @@
 import NodeCache from 'node-cache';
 
-// TTL: 60 seconds
-const cache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
+// Standard TTL of 5 minutes, check for expiration every 1 minute
+const cache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 
 export default cache;

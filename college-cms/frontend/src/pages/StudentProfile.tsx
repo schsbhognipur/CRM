@@ -53,9 +53,12 @@ const StudentProfile = () => {
   };
 
   if (isLoading) return (
-    <div className="flex items-center justify-center min-h-[50vh]">
-       <div className="animate-pulse text-indigo-600 font-bold uppercase tracking-widest text-xs">Accessing Student Core Data...</div>
-    </div>
+     <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-4">
+           <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
+           <p className="text-xs font-black text-slate-400 uppercase tracking-widest animate-pulse">Accessing Student Core Data...</p>
+        </div>
+     </div>
   );
   
   if (!student) return <div className="text-center p-20 font-bold">Terminal Error: Identity not found.</div>;

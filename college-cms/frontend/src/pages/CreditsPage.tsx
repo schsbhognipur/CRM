@@ -31,7 +31,7 @@ const CreditsPage = () => {
     queryFn: async () => {
       if (searchTerm.length < 3) return [];
       const { data } = await api.get(`/students?search=${searchTerm}`);
-      return data.data;
+      return data.students;
     },
     enabled: searchTerm.length >= 3
   });
@@ -69,7 +69,7 @@ const CreditsPage = () => {
          </div>
          <button 
            onClick={() => { setModalOpen(true); setStep(1); }}
-           className="bg-indigo-600 text-white px-8 py-4 rounded-2xl flex items-center gap-3 font-black text-xs uppercase tracking-widest shadow-2xl shadow-indigo-600/30 hover:bg-indigo-500 transition-all active:scale-95"
+           className="bg-indigo-600 text-white px-8 py-4 rounded-2xl flex items-center gap-3 font-black text-xs uppercase tracking-widest shadow-2xl shadow-indigo-600/30 hover:bg-indigo-50 transition-all active:scale-95"
          >
            <Plus size={20} />
            New Entrance Payment
@@ -111,7 +111,7 @@ const CreditsPage = () => {
                {isLoading ? (
                  <tr><td colSpan={5} className="p-20 text-center font-bold text-slate-400 uppercase text-xs tracking-widest animate-pulse">Accessing Ledger Data...</td></tr>
                ) : (
-                 recentTransactions?.data.map((tx: any) => (
+                 (recentTransactions?.transactions || []).map((tx: any) => (
                    <tr key={tx.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors group cursor-pointer">
                       <td className="px-8 py-6 whitespace-nowrap">
                          <p className="text-sm font-black text-indigo-600 tracking-tight">{tx.receiptNo}</p>
@@ -122,7 +122,7 @@ const CreditsPage = () => {
                         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{tx.student?.enrollmentNo}</div>
                       </td>
                       <td className="px-8 py-6 whitespace-nowrap">
-                        <p className="text-lg font-black text-emerald-600">₹{tx.amount.toLocaleString()}</p>
+                        <p className="text-lg font-black text-emerald-600">₹{(Number(tx.amount) || 0).toLocaleString()}</p>
                       </td>
                       <td className="px-8 py-6 whitespace-nowrap">
                          <span className="px-3 py-1 bg-slate-100 dark:bg-slate-900 rounded-lg text-[10px] font-black text-slate-500 uppercase tracking-widest">
@@ -195,7 +195,7 @@ const CreditsPage = () => {
                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Enter min 3 characters to search</p>
                             </div>
                          ) : (
-                            searchResults?.map((student: any) => (
+                            (searchResults || []).map((student: any) => (
                               <button 
                                  key={student.id}
                                  onClick={() => handleStudentSelect(student)}
@@ -207,7 +207,7 @@ const CreditsPage = () => {
                                  </div>
                                  <div className="text-right">
                                     <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Pending</p>
-                                    <p className="text-lg font-black text-rose-600 group-hover:scale-110 transition-transform">₹{student.fees[0]?.balance.toLocaleString()}</p>
+                                    <p className="text-lg font-black text-rose-600 group-hover:scale-110 transition-transform">₹{(Number(student.fees[0]?.balance) || 0).toLocaleString()}</p>
                                  </div>
                               </button>
                             ))
@@ -228,7 +228,7 @@ const CreditsPage = () => {
                             </div>
                             <div className="text-right">
                                <p className="text-[10px] font-black text-rose-300 uppercase tracking-widest mb-1">Fiscal Liability</p>
-                               <p className="text-2xl font-black text-rose-400">₹{selectedStudent.fees[0].balance.toLocaleString()}</p>
+                               <p className="text-2xl font-black text-rose-400">₹{(Number(selectedStudent.fees[0]?.balance) || 0).toLocaleString()}</p>
                             </div>
                          </div>
                       </div>

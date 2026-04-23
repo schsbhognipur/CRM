@@ -1,84 +1,88 @@
 import { Request, Response } from 'express';
 import prisma from '../utils/prisma';
-import { createAuditLog } from '../utils/audit';
 
 export const getExpenseCategories = async (req: Request, res: Response) => {
   const { all } = req.query;
+  const where = all === 'true' ? {} : { isActive: true };
+
   try {
     const categories = await prisma.expenseCategory.findMany({
-      where: {
-        ...(all !== 'true' && { isActive: true })
-      },
+      where,
+      orderBy: { name: 'asc' },
       include: {
-        _count: { select: { transactions: true } }
-      },
-      orderBy: { name: 'asc' }
+        _count: {
+          select: { transactions: true }
+        }
+      }
     });
-    res.json(categories);
+
+    res.json({ success: true, data: categories });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching expense categories' });
+    res.status(500).json({ success: false, message: 'Error fetching expense categories' });
   }
 };
 
 export const createExpenseCategory = async (req: Request, res: Response) => {
   const { name, description } = req.body;
+
+  if (!name || name.length < 2 || name.length > 80) {
+    return res.status(422).json({ success: false, message: 'Name must be between 2 and 80 characters' });
+  }
+
   try {
-    const category = await prisma.expenseCategory.create({
-      data: { name, description }
-    });
-    
-    await createAuditLog({
-      userId: req.user!.id,
-      action: 'CREATE_EXPENSE_CATEGORY',
-      entity: 'ExpenseCategory',
-      entityId: category.id,
-      newValue: category,
-      ipAddress: req.ip
+    const existing = await prisma.expenseCategory.findFirst({
+      where: {
+        name: { equals: name, mode: 'insensitive' }
+      }
     });
 
-    res.status(201).json(category);
+    if (existing) {
+      return res.status(409).json({ success: false, message: 'Expense category with this name already exists' });
+    }
+
+    const newCategory = await prisma.expenseCategory.create({
+      data: {
+        name,
+        description,
+        isActive: true
+      }
+    });
+
+    res.status(201).json({ success: true, data: newCategory });
   } catch (error) {
-    res.status(500).json({ message: 'Error creating expense category' });
+    res.status(500).json({ success: false, message: 'Error creating expense category' });
   }
 };
 
 export const updateExpenseCategory = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { name, description } = req.body;
+  const { name, description, isActive } = req.body;
+
   try {
-    const category = await prisma.expenseCategory.update({
+    if (name) {
+      const existing = await prisma.expenseCategory.findFirst({
+        where: {
+          name: { equals: name, mode: 'insensitive' },
+          id: { not: id } // exclude self
+        }
+      });
+
+      if (existing) {
+        return res.status(409).json({ success: false, message: 'Another category with this name already exists' });
+      }
+    }
+
+    const updatedCategory = await prisma.expenseCategory.update({
       where: { id },
-      data: { name, description }
+      data: {
+        ...(name && { name }),
+        ...(description !== undefined && { description }),
+        ...(isActive !== undefined && { isActive })
+      }
     });
 
-    await createAuditLog({
-      userId: req.user!.id,
-      action: 'UPDATE_EXPENSE_CATEGORY',
-      entity: 'ExpenseCategory',
-      entityId: id,
-      newValue: { name, description },
-      ipAddress: req.ip
-    });
-
-    res.json(category);
+    res.json({ success: true, data: updatedCategory });
   } catch (error) {
-    res.status(500).json({ message: 'Error updating expense category' });
-  }
-};
-
-export const toggleExpenseCategory = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  try {
-    const current = await prisma.expenseCategory.findUnique({ where: { id } });
-    if (!current) return res.status(404).json({ message: 'Category not found' });
-
-    const category = await prisma.expenseCategory.update({
-      where: { id },
-      data: { isActive: !current.isActive }
-    });
-
-    res.json(category);
-  } catch (error) {
-    res.status(500).json({ message: 'Error toggling expense category' });
+    res.status(500).json({ success: false, message: 'Error updating expense category' });
   }
 };

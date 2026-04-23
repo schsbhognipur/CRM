@@ -10,28 +10,32 @@ export const getDayBook = async (req: Request, res: Response) => {
   nextDate.setDate(nextDate.getDate() + 1);
 
   try {
-    // 1. Opening Balance (All transactions before targetDate)
-    const priorStats = await prisma.transaction.groupBy({
-      by: ['type'],
-      where: { transactionDate: { lt: targetDate } },
-      _sum: { amount: true }
-    });
+    // 🔥 SENIOR OPTIMIZATION: Triple-parallel execution
+    const [priorStats, transactions] = await Promise.all([
+      prisma.transaction.groupBy({
+        by: ['type'],
+        where: { transactionDate: { lt: targetDate } },
+        _sum: { amount: true }
+      }),
+      prisma.transaction.findMany({
+        where: { transactionDate: { gte: targetDate, lt: nextDate } },
+        select: {
+          id: true,
+          amount: true,
+          type: true,
+          subType: true,
+          transactionDate: true,
+          description: true,
+          student: { select: { name: true, enrollmentNo: true } },
+          expenseCategory: { select: { name: true } }
+        },
+        orderBy: { transactionDate: 'asc' }
+      })
+    ]);
 
     const priorCredits = Number(priorStats.find(s => s.type === 'CREDIT')?._sum.amount || 0);
     const priorDebits = Number(priorStats.find(s => s.type === 'DEBIT')?._sum.amount || 0);
     const openingBalance = priorCredits - priorDebits;
-
-    // 2. Today's Transactions
-    const transactions = await prisma.transaction.findMany({
-      where: {
-        transactionDate: { gte: targetDate, lt: nextDate }
-      },
-      include: {
-        student: { select: { name: true, enrollmentNo: true } },
-        expenseCategory: { select: { name: true } }
-      },
-      orderBy: { transactionDate: 'asc' }
-    });
 
     const credits = transactions.filter(t => t.type === 'CREDIT');
     const debits = transactions.filter(t => t.type === 'DEBIT');
@@ -50,7 +54,7 @@ export const getDayBook = async (req: Request, res: Response) => {
         debits
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error generating day book' });
+    res.status(500).json({ message: 'Error generating institutional day book' });
   }
 };
 
@@ -93,12 +97,22 @@ export const getOutstandingFees = async (req: Request, res: Response) => {
             where: {
                 balance: { gt: 0 },
                 ...(academicYearId && { academicYearId: String(academicYearId) }),
-                student: {
-                    ...(courseId && { courseId: String(courseId) }),
-                }
+                student: { ...(courseId && { courseId: String(courseId) }) }
             },
-            include: {
-                student: { include: { course: true } }
+            select: {
+                id: true,
+                totalAmount: true,
+                paidAmount: true,
+                balance: true,
+                dueDate: true,
+                student: { 
+                  select: { 
+                    name: true, 
+                    enrollmentNo: true, 
+                    phone: true,
+                    course: { select: { name: true } } 
+                  } 
+                }
             }
         });
 
@@ -110,13 +124,13 @@ export const getOutstandingFees = async (req: Request, res: Response) => {
             
             return {
                 ...f,
-                daysOverdue
+                daysOverdue: dueDate < now ? daysOverdue : 0
             };
         });
 
         res.json(results);
     } catch (error) {
-        res.status(500).json({ message: 'Error generating outstanding report' });
+        res.status(500).json({ message: 'Error generating fiscal outstanding registry' });
     }
 };
 

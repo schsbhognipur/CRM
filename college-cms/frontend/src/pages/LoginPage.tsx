@@ -1,178 +1,181 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Shield, Lock, Mail, ArrowRight, ShieldCheck, AlertTriangle, Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { clsx } from 'clsx';
 import api from '../api/axios';
-import { motion } from 'framer-motion';
-import { ShieldCheck, Lock, Mail, ChevronRight, Settings } from 'lucide-react';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [backendStatus, setBackendStatus] = useState<'Checking' | 'Online' | 'Offline'>('Checking');
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
+  
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const checkPulse = async () => {
+    setBackendStatus('Checking');
+    try {
+      // Use raw fetch to avoid axios interceptors during health check
+      const baseUrl = api.defaults.baseURL || 'http://localhost:5000/api';
+      const response = await fetch(`${baseUrl}/health`, { method: 'GET' });
+      if (response.ok || response.status === 404) {
+        // Even a 404 means the server reacted, so it's "Online"
+        setBackendStatus('Online');
+      } else {
+        setBackendStatus('Offline');
+      }
+    } catch (err) {
+      setBackendStatus('Offline');
+    }
+  };
+
+  useEffect(() => {
+    checkPulse();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     setError('');
-    setLoading(true);
+    setDebugInfo(null);
 
     try {
-      const { data } = await api.post('/auth/login', { email, password });
-      login(data.accessToken, data.user);
+      await login(email, password);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Authentication failed. Please check credentials.');
+      console.error('Login error:', err);
+      if (!err.response) {
+        setError('CONNECTION ERROR: Terminal Unreachable.');
+        setDebugInfo(`Ensure the backend is running at ${api.defaults.baseURL}. This is often a CORS or Firewall issue.`);
+      } else if (err.response.status === 401) {
+        setError('ACCESS DENIED: Invalid Security Credentials.');
+      } else {
+        setError(`CRITICAL: Server returned error ${err.response.status}`);
+        setDebugInfo(err.response.data?.message || 'Unexpected response pattern.');
+      }
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-full flex bg-[#F8FAFC] dark:bg-[#0F172A] selection:bg-indigo-100">
-      {/* Visual Side */}
-      <div className="hidden lg:flex lg:w-1/2 bg-indigo-600 relative overflow-hidden items-center justify-center p-20">
-         <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-[100px] -mr-48 -mt-48" />
-         <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-400/20 rounded-full blur-[100px] -ml-48 -mb-48" />
-         
-         <div className="relative z-10 text-white max-w-lg">
-            <motion.div 
-               initial={{ opacity: 0, y: 20 }}
-               animate={{ opacity: 1, y: 0 }}
-               className="w-16 h-16 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center mb-10 border border-white/20"
-            >
-               <ShieldCheck size={32} />
-            </motion.div>
-            <motion.h2 
-               initial={{ opacity: 0, y: 20 }}
-               animate={{ opacity: 1, y: 0 }}
-               transition={{ delay: 0.1 }}
-               className="text-5xl font-black mb-6 leading-tight"
-            >
-               Institutional Wisdom <br/> Secured.
-            </motion.h2>
-            <motion.p 
-               initial={{ opacity: 0, y: 20 }}
-               animate={{ opacity: 1, y: 0 }}
-               transition={{ delay: 0.2 }}
-               className="text-xl text-indigo-100 font-medium leading-relaxed"
-            >
-               Access the SCHS Pharmacy College Management Intelligence Portal. Optimized for high-fidelity fiscal and student tracking.
-            </motion.p>
-            
-            <motion.div 
-               initial={{ opacity: 0 }}
-               animate={{ opacity: 1 }}
-               transition={{ delay: 0.4 }}
-               className="mt-20 flex gap-4"
-            >
-               <div className="px-5 py-3 bg-white/10 backdrop-blur-lg rounded-2xl border border-white/10">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-indigo-200 mb-1">Status</p>
-                  <p className="text-sm font-bold">Node Active</p>
-               </div>
-               <div className="px-5 py-3 bg-white/10 backdrop-blur-lg rounded-2xl border border-white/10">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-indigo-200 mb-1">Region</p>
-                  <p className="text-sm font-bold">SCHS-PHARMA-1</p>
-               </div>
-            </motion.div>
-         </div>
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-[#F8F9FB] dark:bg-slate-950 transition-colors duration-500">
+      {/* Brand Section */}
+      <div className="hidden lg:flex relative bg-indigo-950 items-center justify-center p-12 overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+           <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-500 via-transparent to-transparent" />
+        </div>
+        <div className="relative z-10 text-center space-y-8">
+           <motion.div 
+             initial={{ scale: 0.5, opacity: 0 }}
+             animate={{ scale: 1, opacity: 1 }}
+             className="w-32 h-32 bg-white/5 backdrop-blur-3xl rounded-[3rem] flex items-center justify-center mx-auto border border-white/10 shadow-2xl"
+           >
+              <ShieldCheck size={64} className="text-white" />
+           </motion.div>
+           <h1 className="text-6xl font-black text-white tracking-tight">SCHS<br/><span className="text-indigo-400">PHARMACY</span></h1>
+           <p className="text-indigo-200/60 font-medium max-w-sm mx-auto">Establishing secure connection to institutional ledger. v4.2 stable build.</p>
+        </div>
       </div>
 
-      {/* Form Side */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-20 bg-white dark:bg-[#0F172A] relative">
-         <div className="max-w-md w-full">
-            <div className="mb-12">
-               <div className="flex items-center gap-3 mb-8 lg:hidden">
-                  <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white">
-                     <Settings size={22} />
-                  </div>
-                  <div>
-                     <h1 className="font-black text-xs text-indigo-600 uppercase tracking-widest leading-none">SCHS</h1>
-                     <p className="text-lg font-bold text-slate-800 dark:text-white -mt-0.5">Portal</p>
-                  </div>
-               </div>
-               <h3 className="text-3xl font-black text-slate-900 dark:text-white mb-2">Welcome Back.</h3>
-               <p className="text-slate-500 font-medium">Please enter your credentials to access the terminal.</p>
-            </div>
-
-            {error && (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-rose-50 border border-rose-100 p-4 rounded-2xl mb-8 flex gap-3 items-center"
-              >
-                 <div className="w-8 h-8 bg-rose-500 rounded-xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-rose-500/20">
-                    <X size={16} />
-                 </div>
-                 <p className="text-sm font-bold text-rose-600">{error}</p>
-              </motion.div>
+      {/* Form Section */}
+      <div className="flex items-center justify-center p-6 relative">
+        <div className="absolute top-6 right-6 flex items-center gap-3">
+          <button 
+            onClick={checkPulse}
+            className={clsx(
+              "px-4 py-2 rounded-full border flex items-center gap-2 transition-all group",
+              backendStatus === 'Online' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+              backendStatus === 'Offline' ? "bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100" :
+              "bg-slate-100 text-slate-400 border-slate-200"
             )}
+          >
+            {backendStatus === 'Online' ? <Wifi size={14} /> : <WifiOff size={14} />}
+            <span className="text-[10px] font-black uppercase tracking-widest">{backendStatus}</span>
+          </button>
+        </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-               <div className="space-y-2">
-                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Encrypted Identity (Email)</label>
-                  <div className="relative group">
-                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={20} />
-                     <input
-                        type="email"
-                        required
-                        placeholder="admin@college.com"
-                        className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-900/50 border-2 border-transparent focus:border-indigo-600 focus:bg-white dark:focus:bg-slate-900 rounded-[1.25rem] transition-all outline-none text-slate-900 dark:text-white font-semibold"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                     />
-                  </div>
-               </div>
+        <motion.div 
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="w-full max-w-md space-y-8"
+        >
+          <div className="space-y-2">
+            <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Portal Access</h2>
+            <p className="text-slate-400 font-bold text-sm tracking-tight">Identify yourself to continue.</p>
+          </div>
 
-               <div className="space-y-2">
-                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Security Token (Password)</label>
-                  <div className="relative group">
-                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={20} />
-                     <input
-                        type="password"
-                        required
-                        placeholder="••••••••"
-                        className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-900/50 border-2 border-transparent focus:border-indigo-600 focus:bg-white dark:focus:bg-slate-900 rounded-[1.25rem] transition-all outline-none text-slate-900 dark:text-white font-semibold"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                     />
-                  </div>
-               </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-4">
+              <div className="group relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={20} />
+                <input
+                  type="email"
+                  placeholder="Official Email"
+                  className="w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-2xl outline-none transition-all font-bold focus:border-indigo-500 focus:shadow-xl focus:shadow-indigo-500/5 placeholder:text-slate-300"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
 
-               <div className="flex items-center justify-between pb-2">
-                  <label className="flex items-center gap-2 cursor-pointer group">
-                     <input type="checkbox" className="w-5 h-5 rounded-lg border-2 border-slate-200 text-indigo-600 focus:ring-indigo-600 transition-all cursor-pointer" />
-                     <span className="text-sm font-bold text-slate-500 group-hover:text-slate-900 transition-colors">Keep Session Active</span>
-                  </label>
-                  <a href="#" className="text-sm font-bold text-indigo-600 hover:text-indigo-500 transition-colors">Credential Recovery</a>
-               </div>
-
-               <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-200 text-white py-4 rounded-[1.25rem] font-black text-lg shadow-2xl shadow-indigo-600/30 active:scale-95 transition-all flex items-center justify-center gap-3 group"
-               >
-                  {loading ? 'Authenticating...' : (
-                    <>
-                      Enter Terminal <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                    </>
-                  )}
-               </button>
-            </form>
-
-            <div className="mt-12 pt-8 border-t border-slate-100 dark:border-slate-800 text-center">
-               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                  Secure Institutional Gateway • v1.0.4
-               </p>
+              <div className="group relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={20} />
+                <input
+                  type="password"
+                  placeholder="Security Code"
+                  className="w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-2xl outline-none transition-all font-bold focus:border-indigo-500 focus:shadow-xl focus:shadow-indigo-500/5 placeholder:text-slate-300"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
             </div>
-         </div>
+
+            <AnimatePresence>
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="p-4 bg-rose-50 border border-rose-100 rounded-xl space-y-2"
+                >
+                  <div className="flex items-center gap-2 text-rose-600">
+                    <AlertTriangle size={16} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">{error}</span>
+                  </div>
+                  {debugInfo && (
+                    <div className="p-3 bg-white/60 text-[9px] font-bold text-rose-400 leading-relaxed rounded-lg border border-rose-100/30 font-mono">
+                      TRACE: {debugInfo}
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className={clsx(
+                "w-full py-5 rounded-2xl font-black text-xs uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-3 active:scale-95",
+                isLoading 
+                  ? "bg-slate-100 text-slate-400 cursor-not-allowed" 
+                  : "bg-indigo-600 text-white shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700"
+              )}
+            >
+              {isLoading ? 'Decrypting...' : <>Establish Connection <ArrowRight size={18} /></>}
+            </button>
+          </form>
+
+          <p className="text-[10px] text-center font-black text-slate-300 uppercase tracking-widest">
+            Institutional Encryption Protocol Enforced
+          </p>
+        </motion.div>
       </div>
     </div>
   );
 };
-
-// Internal icon import for error display
-import { X } from 'lucide-react';
 
 export default LoginPage;

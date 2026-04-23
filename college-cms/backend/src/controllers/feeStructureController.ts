@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import prisma from '../utils/prisma';
-import { createAuditLog } from '../utils/audit';
 
 export const getFeeStructures = async (req: Request, res: Response) => {
   const { courseId, academicYearId } = req.query;
@@ -8,156 +8,185 @@ export const getFeeStructures = async (req: Request, res: Response) => {
     const structures = await prisma.feeStructure.findMany({
       where: {
         ...(courseId && { courseId: String(courseId) }),
-        ...(academicYearId && { academicYearId: String(academicYearId) }),
+        ...(academicYearId && { academicYearId: String(academicYearId) })
       },
       include: {
-        components: { include: { feeComponent: true } },
         course: { select: { name: true } },
-        academicYear: { select: { label: true } }
+        academicYear: { select: { label: true } },
+        components: {
+           include: { feeComponent: { select: { name: true } } }
+        }
       },
-      orderBy: { yearOfStudy: 'asc' }
+      orderBy: [{ courseId: 'asc' }, { yearOfStudy: 'asc' }]
     });
-    res.json(structures);
+    res.json({ success: true, data: structures });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching fee structures' });
+    res.status(500).json({ success: false, message: 'Error fetching structures' });
   }
 };
+
+const structureSchema = z.object({
+  courseId: z.string().uuid(),
+  academicYearId: z.string().uuid(),
+  yearOfStudy: z.number().int().min(1).max(4),
+  components: z.array(z.object({
+     feeComponentId: z.string().uuid(),
+     amount: z.number().positive()
+  })).min(1, "At least 1 component required")
+}).superRefine((data, ctx) => {
+  const ids = data.components.map(c => c.feeComponentId);
+  if (new Set(ids).size !== ids.length) {
+     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Duplicate fee components detected" });
+  }
+});
 
 export const createFeeStructure = async (req: Request, res: Response) => {
-  const { courseId, academicYearId, yearOfStudy, components } = req.body;
-  
-  const totalAmount = components.reduce((sum: number, c: any) => sum + Number(c.amount), 0);
-
   try {
-    const structure = await prisma.$transaction(async (tx) => {
-      const newStructure = await tx.feeStructure.create({
-        data: {
-          courseId,
-          academicYearId,
-          yearOfStudy,
-          totalAmount,
-          components: {
-            create: components.map((c: any) => ({
-              feeComponentId: c.feeComponentId,
-              amount: c.amount
-            }))
-          }
-        }
-      });
-      return newStructure;
+    const validation = structureSchema.safeParse(req.body);
+    if (!validation.success) return res.status(422).json({ success: false, message: validation.error.issues[0].message });
+
+    const { courseId, academicYearId, yearOfStudy, components } = validation.data;
+
+    const existing = await prisma.feeStructure.findUnique({
+      where: { courseId_academicYearId_yearOfStudy: { courseId, academicYearId, yearOfStudy } }
+    });
+    if (existing) return res.status(409).json({ success: false, message: 'Fee structure already exists for this mapping' });
+
+    const totalAmount = components.reduce((acc, curr) => acc + curr.amount, 0);
+
+    const result = await prisma.$transaction(async (tx) => {
+       const structure = await tx.feeStructure.create({
+          data: {
+             courseId,
+             academicYearId,
+             yearOfStudy,
+             totalAmount,
+             components: {
+                create: components.map(c => ({ feeComponentId: c.feeComponentId, amount: c.amount }))
+             }
+          },
+          include: { components: true }
+       });
+       return structure;
     });
 
-    await createAuditLog({
-      userId: req.user!.id,
-      action: 'CREATE_FEE_STRUCTURE',
-      entity: 'FeeStructure',
-      entityId: structure.id,
-      newValue: structure,
-      ipAddress: req.ip
-    });
-
-    res.status(201).json(structure);
+    res.status(201).json({ success: true, data: result });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error creating fee structure' });
+    res.status(500).json({ success: false, message: 'Error creating structure' });
   }
 };
+
+const updateSchema = z.object({
+  components: z.array(z.object({
+     feeComponentId: z.string().uuid(),
+     amount: z.number().nonnegative()
+  })).min(1)
+});
 
 export const updateFeeStructure = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { components } = req.body; // Array of { feeComponentId, amount }
-
-  const totalAmount = components.reduce((sum: number, c: any) => sum + Number(c.amount), 0);
-
   try {
-    await prisma.$transaction(async (tx) => {
-      // 1. Delete old components
+    const validation = updateSchema.safeParse(req.body);
+    if (!validation.success) return res.status(422).json({ success: false, message: "Invalid components mapped" });
+    
+    // Filter out 0 amounts
+    const validComponents = validation.data.components.filter(c => c.amount > 0);
+    const totalAmount = validComponents.reduce((acc, curr) => acc + curr.amount, 0);
+
+    const updated = await prisma.$transaction(async (tx) => {
+      // Clear old components
       await tx.feeStructureComponent.deleteMany({ where: { feeStructureId: id } });
-
-      // 2. Update structure and add new components
-      const updatedStructure = await tx.feeStructure.update({
-        where: { id },
-        data: {
-          totalAmount,
-          components: {
-            create: components.map((c: any) => ({
-              feeComponentId: c.feeComponentId,
-              amount: c.amount
-            }))
-          }
-        }
-      });
-
-      // 3. Update PENDING/PARTIAL StudentFees linked to this structure
-      const studentFees = await tx.studentFee.findMany({
-        where: { 
-          feeStructureId: id,
-          status: { in: ['PENDING', 'PARTIAL'] }
-        }
-      });
-
-      for (const fee of studentFees) {
-        const newBalance = Number(totalAmount) - Number(fee.paidAmount);
-        await tx.studentFee.update({
-          where: { id: fee.id },
-          data: {
+      
+      // Update structure and insert new components
+      const struct = await tx.feeStructure.update({
+         where: { id },
+         data: {
             totalAmount,
-            balance: newBalance,
-            status: newBalance <= 0 ? 'PAID' : fee.status
-          }
-        });
+            components: {
+               create: validComponents.map(c => ({ feeComponentId: c.feeComponentId, amount: c.amount }))
+            }
+         },
+         include: { components: { include: { feeComponent: true } } }
+      });
+
+      // Update PENDING Student Fees mapped to this structure
+      const pendingFees = await tx.studentFee.findMany({
+         where: { feeStructureId: id, status: 'PENDING' }
+      });
+      
+      for (const fee of pendingFees) {
+         await tx.studentFee.update({
+            where: { id: fee.id },
+            data: { totalAmount, balance: totalAmount } // balance = totalAmount since PAID = 0 on PENDING
+         });
       }
 
-      return updatedStructure;
+      return struct;
     });
-
-    await createAuditLog({
-      userId: req.user!.id,
-      action: 'UPDATE_FEE_STRUCTURE',
-      entity: 'FeeStructure',
-      entityId: id,
-      newValue: { components, totalAmount },
-      ipAddress: req.ip
-    });
-
-    res.json({ message: 'Fee structure and linked student fees updated successfully' });
+    
+    res.json({ success: true, data: updated });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error updating fee structure' });
+    res.status(500).json({ success: false, message: 'Error updating structure' });
   }
 };
 
 export const copyFeeStructure = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { targetAcademicYearId } = req.body;
+  if (!targetAcademicYearId) return res.status(422).json({ success: false, message: 'Target year required' });
 
   try {
-    const source = await prisma.feeStructure.findUnique({
-      where: { id },
-      include: { components: true }
+    const sourceStruct = await prisma.feeStructure.findUnique({
+       where: { id },
+       include: { components: true }
     });
+    if (!sourceStruct) return res.status(404).json({ success: false, message: 'Source structure not found' });
 
-    if (!source) return res.status(404).json({ message: 'Source structure not found' });
-
-    const newStructure = await prisma.$transaction(async (tx) => {
-      return tx.feeStructure.create({
-        data: {
-          courseId: source.courseId,
-          yearOfStudy: source.yearOfStudy,
-          academicYearId: targetAcademicYearId,
-          totalAmount: source.totalAmount,
-          components: {
-            create: source.components.map(c => ({
-              feeComponentId: c.feeComponentId,
-              amount: c.amount
-            }))
+    const existingCheck = await prisma.feeStructure.findUnique({
+       where: {
+          courseId_academicYearId_yearOfStudy: {
+             courseId: sourceStruct.courseId,
+             academicYearId: targetAcademicYearId,
+             yearOfStudy: sourceStruct.yearOfStudy
           }
-        }
-      });
+       }
     });
 
-    res.status(201).json(newStructure);
+    if (existingCheck) return res.status(409).json({ success: false, message: 'Structure already exists in target year' });
+
+    const newStruct = await prisma.feeStructure.create({
+       data: {
+          courseId: sourceStruct.courseId,
+          academicYearId: targetAcademicYearId,
+          yearOfStudy: sourceStruct.yearOfStudy,
+          totalAmount: sourceStruct.totalAmount,
+          components: {
+             create: sourceStruct.components.map(c => ({
+                feeComponentId: c.feeComponentId,
+                amount: c.amount
+             }))
+          }
+       }
+    });
+
+    res.json({ success: true, data: newStruct });
   } catch (error) {
-    res.status(500).json({ message: 'Error copying fee structure' });
+    res.status(500).json({ success: false, message: 'Error copying structure' });
   }
+};
+
+export const deleteFeeStructure = async (req: Request, res: Response) => {
+   const { id } = req.params;
+   try {
+      const studentCount = await prisma.studentFee.count({ where: { feeStructureId: id } });
+      if (studentCount > 0) return res.status(400).json({ success: false, message: 'Cannot delete: students are already linked to this structure.' });
+
+      await prisma.$transaction([
+         prisma.feeStructureComponent.deleteMany({ where: { feeStructureId: id } }),
+         prisma.feeStructure.delete({ where: { id } })
+      ]);
+      res.json({ success: true, message: 'Structure deleted' });
+   } catch (error) {
+      res.status(500).json({ success: false, message: 'Delete failed' });
+   }
 };

@@ -65,9 +65,9 @@ async function main() {
 
   await prisma.feeStructureComponent.create({
     data: {
-        feeStructureId: dpharmaStructure.id,
-        feeComponentId: tuition.id,
-        amount: 50000
+      feeStructureId: dpharmaStructure.id,
+      feeComponentId: tuition.id,
+      amount: 50000
     }
   });
 

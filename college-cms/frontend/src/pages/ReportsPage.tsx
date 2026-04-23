@@ -189,7 +189,7 @@ const ReportsPage = () => {
                                  <tr><td colSpan={4} className="p-32 text-center text-slate-400 font-black uppercase text-xs tracking-widest animate-pulse">Compiling Intelligence Matrix...</td></tr>
                               ) : (
                                  <>
-                                    {activeReport === 'daybook' && reportData && [...reportData.credits, ...reportData.debits].map((row: any) => (
+                                    {activeReport === 'daybook' && reportData && ([...(reportData.credits || []), ...(reportData.debits || [])]).map((row: any) => (
                                        <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors cursor-pointer group">
                                           <td className="px-8 py-6">
                                              <div className="text-sm font-black text-slate-800 dark:text-white uppercase truncate max-w-[200px]">{row.student?.name || row.description}</div>

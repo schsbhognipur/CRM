@@ -11,21 +11,29 @@ export const useRealtimeDashboard = () => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const channel = supabaseClient
-      .channel('transactions-db-changes')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'Transaction' },
-        (payload) => {
-          console.log('Realtime update:', payload);
-          queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-          queryClient.invalidateQueries({ queryKey: ['transactions'] });
-        }
-      )
-      .subscribe();
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.warn('⚠️ Realtime Dashboard: Supabase credentials missing. Pulse updates disabled.');
+      return;
+    }
 
-    return () => {
-      supabaseClient.removeChannel(channel);
-    };
+    try {
+      const channel = supabaseClient
+        .channel('transactions-db-changes')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'Transaction' },
+          (payload) => {
+            console.log('Realtime pulse received:', payload);
+            queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabaseClient.removeChannel(channel);
+      };
+    } catch (error) {
+      console.error('❌ Realtime Dashboard: Subscription failed.', error);
+    }
   }, [queryClient]);
 };

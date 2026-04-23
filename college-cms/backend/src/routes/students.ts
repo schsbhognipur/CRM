@@ -8,7 +8,9 @@ import {
   deleteStudent,
   uploadPhoto,
   exportStudents,
-  uploadImportStudents
+  uploadImportStudents,
+  searchStudents,
+  syncStudentFee
 } from '../controllers/studentController';
 import { authenticate } from '../middleware/authenticate';
 import { authorize } from '../middleware/authorize';
@@ -20,9 +22,11 @@ router.use(authenticate);
 
 router.get('/', getStudents);
 router.get('/export', exportStudents);
+router.get('/search', searchStudents);
 router.get('/:id', getStudent);
 
 router.post('/', authorize('SUPER_ADMIN', 'ADMIN'), createStudent);
+router.post('/:id/sync-fee', authorize('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'), syncStudentFee);
 router.put('/:id', authorize('SUPER_ADMIN', 'ADMIN', 'STAFF'), updateStudent);
 router.delete('/:id', authorize('SUPER_ADMIN', 'ADMIN'), deleteStudent);
 

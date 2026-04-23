@@ -21,15 +21,26 @@ export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = loginSchema.parse(req.body);
 
+    console.log(`🔐 Auth Attempt: ${email}`);
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !user.isActive) {
-      return res.status(401).json({ message: 'Invalid credentials or inactive account' });
+    
+    if (!user) {
+      console.warn(`❌ Auth Failed: User not found [${email}]`);
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    if (!user.isActive) {
+      console.warn(`❌ Auth Failed: Account inactive [${email}]`);
+      return res.status(401).json({ message: 'Account suspended' });
     }
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
+      console.warn(`❌ Auth Failed: Password mismatch [${email}]`);
       return res.status(401).json({ message: 'Invalid credentials' });
     }
+
+    console.log(`✅ Auth Success: ${email} (${user.role})`);
 
     const accessToken = generateAccessToken(user.id, user.role);
     const refreshToken = generateRefreshToken(user.id, user.role);

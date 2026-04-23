@@ -51,7 +51,7 @@ const UsersPage = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-            {usersData?.data?.map((user: any) => (
+            {(usersData?.data || []).map((user: any) => (
               <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{user.name}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{user.email}</td>

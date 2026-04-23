@@ -68,6 +68,7 @@ model User {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
 
   transactions Transaction[]
   auditLogs    AuditLog[]
@@ -228,6 +229,9 @@ model Transaction {
   recordedById       String
   receipt            Receipt?
   createdAt          DateTime          @default(now())
+  deletedAt          DateTime?
+  deletedReason      String?
+  invoiceNo          String?           @db.VarChar(50)
 
   @@index([transactionDate])
   @@index([type, subType])
@@ -262,4 +266,9 @@ model AuditLog {
   @@index([userId])
   @@index([entity, entityId])
   @@index([createdAt])
+}
+
+model Counter {
+  id    String @id
+  value Int    @default(0)
 }

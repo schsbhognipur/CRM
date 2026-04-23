@@ -78,7 +78,7 @@ const ExpensesPage = () => {
             <div className="col-span-1 md:col-span-2 bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border dark:border-gray-700">
                <h3 className="text-lg font-bold mb-6">Recent Expenses</h3>
                <div className="space-y-4 max-h-[400px] overflow-auto pr-2">
-                 {expenses?.data.map((ex: any) => (
+                 {(expenses?.transactions || []).map((ex: any) => (
                    <div key={ex.id} className="flex justify-between items-center p-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-xl transition">
                       <div className="flex items-center gap-4">
                          <div className="w-10 h-10 bg-red-50 dark:bg-red-900/10 text-red-600 rounded-full flex items-center justify-center">

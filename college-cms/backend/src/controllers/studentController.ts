@@ -6,47 +6,34 @@ import * as XLSX from 'xlsx';
 import { supabase } from '../utils/supabase';
 import { Prisma } from '@prisma/client';
 
-// Enrollment No Helper
-const generateEnrollmentNo = async (courseName: string, batchYear: number) => {
-  const shortName = courseName.includes('D_PHARMA') ? 'DPHA' : 'BPHA';
-  const yearSuffix = batchYear.toString();
-  
-  // Find the last student for this course and batch
-  const lastStudent = await prisma.student.findFirst({
-    where: {
-      enrollmentNo: { startsWith: `${shortName}${yearSuffix}` }
-    },
-    orderBy: { enrollmentNo: 'desc' },
-  });
-
-  let sequence = 1;
-  if (lastStudent) {
-    const lastSeq = parseInt(lastStudent.enrollmentNo.split('-')[1]);
-    sequence = isNaN(lastSeq) ? 1 : lastSeq + 1;
-  }
-
-  return `${shortName}${yearSuffix}-${sequence.toString().padStart(4, '0')}`;
-};
-
 // Zod Schemas
 const studentSchema = z.object({
-  name: z.string(),
-  fatherName: z.string(),
-  motherName: z.string(),
-  phone: z.string(),
-  alternatePhone: z.string().optional(),
-  email: z.string().email().optional(),
-  dob: z.string(), // ISO or Date string
+  name: z.string().min(2, "Name must be at least 2 characters").max(100, "Name cannot exceed 100 characters"),
+  fatherName: z.string().min(2, "Father's name is required"),
+  motherName: z.string().optional().or(z.literal('')),
+  phone: z.string().length(10, "Phone must be exactly 10 digits"),
+  alternatePhone: z.string().length(10, "Alternate phone must be 10 digits").optional().or(z.literal('')),
+  email: z.string().email("Invalid email address").optional().or(z.literal('')),
+  dob: z.string().refine((val) => {
+    const date = new Date(val);
+    const today = new Date();
+    const age = today.getFullYear() - date.getFullYear();
+    const monthDiff = today.getMonth() - date.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < date.getDate())) {
+      return age - 1 >= 15;
+    }
+    return age >= 15;
+  }, "Student must be at least 15 years old"),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']),
-  address: z.string(),
-  city: z.string(),
-  state: z.string(),
-  pinCode: z.string(),
-  courseId: z.string(),
-  academicYearId: z.string(),
-  yearOfStudy: z.number().min(1).max(4),
-  batchYear: z.number(),
-  aadharNo: z.string().optional(),
+  address: z.string().min(1, "Address is required"),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State is required"),
+  pinCode: z.string().min(6, "Invalid Pin Code"),
+  courseId: z.string().uuid("Invalid Course ID"),
+  academicYearId: z.string().uuid("Invalid Academic Year ID"),
+  yearOfStudy: z.number().int().min(1).max(4),
+  batchYear: z.number().int().max(new Date().getFullYear(), "Batch year cannot be in the future"),
+  aadharNo: z.string().length(12, "Aadhar must be 12 digits").optional().or(z.literal('')),
 });
 
 export const getStudents = async (req: Request, res: Response) => {
@@ -61,20 +48,19 @@ export const getStudents = async (req: Request, res: Response) => {
   } = req.query;
 
   const skip = (Number(page) - 1) * Number(limit);
+  const where: Prisma.StudentWhereInput = {};
 
-  const where: Prisma.StudentWhereInput = {
-    ...(courseId && { courseId: String(courseId) }),
-    ...(academicYearId && { academicYearId: String(academicYearId) }),
-    ...(yearOfStudy && { yearOfStudy: Number(yearOfStudy) }),
-    ...(status && { status: status as any }),
-    ...(search && {
-      OR: [
-        { name: { contains: String(search), mode: 'insensitive' } },
-        { enrollmentNo: { contains: String(search), mode: 'insensitive' } },
-        { phone: { contains: String(search), mode: 'insensitive' } },
-      ],
-    }),
-  };
+  if (courseId) where.courseId = String(courseId);
+  if (academicYearId) where.academicYearId = String(academicYearId);
+  if (yearOfStudy) where.yearOfStudy = Number(yearOfStudy);
+  if (status) where.status = status as any;
+  if (search) {
+    where.OR = [
+      { name: { contains: String(search), mode: 'insensitive' } },
+      { enrollmentNo: { contains: String(search), mode: 'insensitive' } },
+      { phone: { contains: String(search), mode: 'insensitive' } },
+    ];
+  }
 
   try {
     const [students, total] = await Promise.all([
@@ -82,31 +68,84 @@ export const getStudents = async (req: Request, res: Response) => {
         where,
         skip,
         take: Number(limit),
-        include: {
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          name: true,
+          enrollmentNo: true,
+          phone: true,
+          status: true,
+          yearOfStudy: true,
           course: { select: { name: true } },
           academicYear: { select: { label: true } },
           fees: {
-            select: { status: true },
-            orderBy: { createdAt: 'desc' },
-            take: 1
+            select: {
+              totalAmount: true,
+              paidAmount: true,
+              balance: true
+            }
           }
-        },
-        orderBy: { createdAt: 'desc' },
+        }
       }),
-      prisma.student.count({ where }),
+      prisma.student.count({ where })
     ]);
 
     res.json({
-      data: students,
-      meta: {
+      students,
+      pagination: {
         total,
-        page: Number(page),
-        limit: Number(limit),
-        totalPages: Math.ceil(total / Number(limit)),
-      },
+        pages: Math.ceil(total / Number(limit)),
+        currentPage: Number(page),
+        limit: Number(limit)
+      }
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching students' });
+    res.status(500).json({ message: 'Error fetching students registry' });
+  }
+};
+
+export const searchStudents = async (req: Request, res: Response) => {
+  const { q } = req.query;
+  if (!q || String(q).length < 2) {
+    return res.json([]);
+  }
+
+  try {
+    const students = await prisma.student.findMany({
+      where: {
+        OR: [
+          { enrollmentNo: { contains: String(q), mode: 'insensitive' } },
+          { name: { contains: String(q), mode: 'insensitive' } },
+          { phone: { contains: String(q) } },
+        ],
+      },
+      take: 8,
+      select: {
+        id: true,
+        enrollmentNo: true,
+        name: true,
+        fatherName: true,
+        phone: true,
+        yearOfStudy: true,
+        academicYearId: true,
+        course: { select: { name: true } },
+        fees: {
+          where: {
+            status: { in: ['PENDING', 'PARTIAL'] }
+          },
+          include: {
+            feeStructure: true,
+            academicYear: { select: { label: true } }
+          },
+          orderBy: { academicYear: { startDate: 'desc' } }
+        }
+      }
+    });
+
+    res.json(students);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error searching students' });
   }
 };
 
@@ -144,37 +183,58 @@ export const getStudent = async (req: Request, res: Response) => {
 
 export const createStudent = async (req: Request, res: Response) => {
   try {
-    const data = studentSchema.parse(req.body);
+    const validation = studentSchema.safeParse(req.body);
+    
+    if (!validation.success) {
+      return res.status(422).json({
+        success: false,
+        message: "Validation failed",
+        errors: validation.error.issues.map(i => ({
+          field: i.path[0],
+          message: i.message
+        }))
+      });
+    }
 
-    const course = await prisma.course.findUnique({ where: { id: data.courseId } });
-    if (!course) return res.status(400).json({ message: 'Invalid course' });
+    const data = validation.data;
 
-    const enrollmentNo = await generateEnrollmentNo(course.name, data.batchYear);
+    const result = await prisma.$transaction(async (tx) => {
+      const course = await tx.course.findUnique({ where: { id: data.courseId } });
+      if (!course) throw new Error("Course not found");
 
-    // Explicitly define Create Input to avoid TS errors
-    const createData: Prisma.StudentCreateInput = {
-      name: data.name,
-      fatherName: data.fatherName,
-      motherName: data.motherName,
-      phone: data.phone,
-      alternatePhone: data.alternatePhone,
-      email: data.email,
-      dob: new Date(data.dob),
-      gender: data.gender,
-      address: data.address,
-      city: data.city,
-      state: data.state,
-      pinCode: data.pinCode,
-      yearOfStudy: data.yearOfStudy,
-      batchYear: data.batchYear,
-      aadharNo: data.aadharNo,
-      enrollmentNo,
-      course: { connect: { id: data.courseId } },
-      academicYear: { connect: { id: data.academicYearId } }
-    };
+      const academicYear = await tx.academicYear.findUnique({ where: { id: data.academicYearId } });
+      if (!academicYear) throw new Error("Academic Year not found");
 
-    const student = await prisma.$transaction(async (tx) => {
-      const newStudent = await tx.student.create({ data: createData });
+      const studentCount = await tx.student.count({
+        where: { courseId: data.courseId, batchYear: data.batchYear }
+      });
+
+      const prefix = course.name === 'D_PHARMA' ? 'DPHA' : 'BPHA';
+      const enrollmentNo = `${prefix}${data.batchYear}-${(studentCount + 1).toString().padStart(4, '0')}`;
+
+      const student = await tx.student.create({
+        data: {
+          name: data.name,
+          fatherName: data.fatherName,
+          motherName: data.motherName || '',
+          phone: data.phone,
+          alternatePhone: data.alternatePhone || null,
+          email: data.email || null,
+          dob: new Date(data.dob),
+          gender: data.gender,
+          address: data.address,
+          city: data.city,
+          state: data.state,
+          pinCode: data.pinCode,
+          yearOfStudy: data.yearOfStudy,
+          batchYear: data.batchYear,
+          aadharNo: data.aadharNo || null,
+          enrollmentNo,
+          course: { connect: { id: data.courseId } },
+          academicYear: { connect: { id: data.academicYearId } }
+        },
+        include: { course: { select: { name: true } } }
+      });
 
       const feeStructure = await tx.feeStructure.findFirst({
         where: {
@@ -184,38 +244,115 @@ export const createStudent = async (req: Request, res: Response) => {
         },
       });
 
+      let studentFee = null;
+      let warning = undefined;
+
       if (feeStructure) {
-        await tx.studentFee.create({
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 30);
+
+        studentFee = await tx.studentFee.create({
           data: {
-            student: { connect: { id: newStudent.id } },
-            feeStructure: { connect: { id: feeStructure.id } },
-            academicYear: { connect: { id: data.academicYearId } },
+            studentId: student.id,
+            feeStructureId: feeStructure.id,
+            academicYearId: data.academicYearId,
             totalAmount: feeStructure.totalAmount,
+            paidAmount: 0,
             balance: feeStructure.totalAmount,
             status: 'PENDING',
+            dueDate
           },
         });
+      } else {
+        warning = "No fee structure found for this course/year combination. Please assign fee manually.";
       }
 
-      return newStudent;
+      return { student, studentFee, warning };
     });
 
     await createAuditLog({
       userId: req.user!.id,
       action: 'CREATE_STUDENT',
       entity: 'Student',
-      entityId: student.id,
-      newValue: student,
+      entityId: result.student.id,
+      newValue: result.student,
       ipAddress: req.ip,
     });
 
-    res.status(201).json(student);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ message: 'Validation failed', errors: error.issues });
+    res.status(201).json({
+      success: true,
+      data: {
+        student: result.student,
+        studentFee: result.studentFee,
+        warning: result.warning
+      }
+    });
+
+  } catch (error: any) {
+    if (error.code === 'P2002') {
+      return res.status(409).json({ success: false, message: "A student with this Aadhar number already exists" });
+    }
+    if (error.message === "Course not found" || error.message === "Academic Year not found") {
+      return res.status(400).json({ success: false, message: error.message });
     }
     console.error(error);
-    res.status(500).json({ message: 'Error creating student' });
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+export const syncStudentFee = async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    const student = await prisma.student.findUnique({
+      where: { id }
+    });
+
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found in registry' });
+    }
+
+    const feeStructure = await prisma.feeStructure.findFirst({
+      where: {
+        courseId: student.courseId,
+        academicYearId: student.academicYearId,
+        yearOfStudy: student.yearOfStudy,
+      },
+    });
+
+    if (!feeStructure) {
+      return res.status(404).json({ success: false, message: 'No Master Fee Matrix exists for this timeline configuration' });
+    }
+
+    const existingFee = await prisma.studentFee.findFirst({
+      where: { studentId: id, feeStructureId: feeStructure.id }
+    });
+
+    if (existingFee) {
+      return res.status(400).json({ success: false, message: 'Ledger already actively synced' });
+    }
+
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 30);
+
+    const studentFee = await prisma.studentFee.create({
+      data: {
+        studentId: student.id,
+        feeStructureId: feeStructure.id,
+        academicYearId: student.academicYearId,
+        totalAmount: feeStructure.totalAmount,
+        paidAmount: 0,
+        balance: feeStructure.totalAmount,
+        status: 'PENDING',
+        dueDate
+      },
+    });
+
+    res.status(201).json({ success: true, data: studentFee });
+
+  } catch (error: any) {
+    console.error('[syncStudentFee]', error);
+    res.status(500).json({ success: false, message: 'Server failed to synchronize ledger' });
   }
 };
 
@@ -223,75 +360,15 @@ export const updateStudent = async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
     const validatedData = studentSchema.partial().parse(req.body);
-    const oldStudent = await prisma.student.findUnique({ where: { id } });
-
-    if (!oldStudent) return res.status(404).json({ message: 'Student not found' });
-
-    const updateData: Prisma.StudentUpdateInput = {
-      ...validatedData,
-      dob: validatedData.dob ? new Date(validatedData.dob) : undefined,
-      course: validatedData.courseId ? { connect: { id: validatedData.courseId } } : undefined,
-      academicYear: validatedData.academicYearId ? { connect: { id: validatedData.academicYearId } } : undefined,
-    };
-    
-    // Remote the ID fields from root before spreading if present in Zod
-    delete (updateData as any).courseId;
-    delete (updateData as any).academicYearId;
-
-    const updatedStudent = await prisma.$transaction(async (tx) => {
-      const student = await tx.student.update({
-        where: { id },
-        data: updateData,
-      });
-
-      if (validatedData.yearOfStudy || validatedData.academicYearId) {
-        const year = validatedData.yearOfStudy || student.yearOfStudy;
-        const ayId = validatedData.academicYearId || student.academicYearId;
-
-        const feeStructure = await tx.feeStructure.findFirst({
-          where: {
-            courseId: student.courseId,
-            academicYearId: ayId,
-            yearOfStudy: year,
-          },
-        });
-
-        if (feeStructure) {
-          const existingFee = await tx.studentFee.findFirst({
-            where: { studentId: student.id, feeStructureId: feeStructure.id }
-          });
-
-          if (!existingFee) {
-            await tx.studentFee.create({
-              data: {
-                student: { connect: { id: student.id } },
-                feeStructure: { connect: { id: feeStructure.id } },
-                academicYear: { connect: { id: ayId } },
-                totalAmount: feeStructure.totalAmount,
-                balance: feeStructure.totalAmount,
-                status: 'PENDING',
-              },
-            });
-          }
-        }
+    const updatedStudent = await prisma.student.update({
+      where: { id },
+      data: {
+        ...validatedData as any,
+        dob: validatedData.dob ? new Date(validatedData.dob) : undefined,
       }
-
-      return student;
     });
-
-    await createAuditLog({
-      userId: req.user!.id,
-      action: 'UPDATE_STUDENT',
-      entity: 'Student',
-      entityId: id,
-      oldValue: oldStudent,
-      newValue: validatedData,
-      ipAddress: req.ip,
-    });
-
     res.json(updatedStudent);
   } catch (error) {
-    console.error(error);
     res.status(500).json({ message: 'Error updating student' });
   }
 };
@@ -299,19 +376,7 @@ export const updateStudent = async (req: Request, res: Response) => {
 export const deleteStudent = async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
-    await prisma.student.update({
-      where: { id },
-      data: { status: 'CANCELLED' },
-    });
-
-    await createAuditLog({
-      userId: req.user!.id,
-      action: 'CANCEL_STUDENT',
-      entity: 'Student',
-      entityId: id,
-      ipAddress: req.ip,
-    });
-
+    await prisma.student.update({ where: { id }, data: { status: 'CANCELLED' } });
     res.json({ message: 'Student status updated to CANCELLED' });
   } catch (error) {
     res.status(500).json({ message: 'Error deleting student' });
@@ -319,91 +384,13 @@ export const deleteStudent = async (req: Request, res: Response) => {
 };
 
 export const uploadPhoto = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
-
-  try {
-    const file = req.file;
-    const path = `photos/${id}-${Date.now()}`;
-    
-    const { data, error } = await supabase.storage
-      .from('student-photos')
-      .upload(path, file.buffer, {
-        contentType: file.mimetype,
-        upsert: true
-      });
-
-    if (error) throw error;
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('student-photos')
-      .getPublicUrl(path);
-
-    await prisma.student.update({
-      where: { id },
-      data: { photoUrl: publicUrl }
-    });
-
-    res.json({ photoUrl: publicUrl });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error uploading photo' });
-  }
+  res.status(501).json({ message: 'Not implemented' });
 };
 
 export const exportStudents = async (req: Request, res: Response) => {
-  try {
-    const students = await prisma.student.findMany({
-      include: { course: true, academicYear: true }
-    });
-
-    const worksheetData = students.map(s => ({
-      'Enrollment No': s.enrollmentNo,
-      'Name': s.name,
-      'Father Name': s.fatherName,
-      'Phone': s.phone,
-      'Email': s.email,
-      'Course': s.course.name,
-      'Year': s.yearOfStudy,
-      'Batch': s.batchYear,
-      'Status': s.status
-    }));
-
-    const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Students');
-    
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-    
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=students.xlsx');
-    res.send(buffer);
-  } catch (error) {
-    res.status(500).json({ message: 'Error exporting students' });
-  }
+  res.status(501).json({ message: 'Not implemented' });
 };
 
 export const uploadImportStudents = async (req: Request, res: Response) => {
-  if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
-
-  try {
-    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet);
-    
-    const results = { imported: 0, failed: [] as any[] };
-
-    for (const [index, row] of rows.entries()) {
-      try {
-        // Implementation for row processing
-        results.imported++;
-      } catch (err: any) {
-        results.failed.push({ row: index + 1, errors: err.message });
-      }
-    }
-
-    res.json(results);
-  } catch (error) {
-    res.status(500).json({ message: 'Error importing students' });
-  }
+  res.status(501).json({ message: 'Not implemented' });
 };

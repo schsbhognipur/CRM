@@ -3,21 +3,14 @@ import prisma from '../utils/prisma';
 import { createAuditLog } from '../utils/audit';
 
 export const getStudentFees = async (req: Request, res: Response) => {
-  const { courseId, academicYearId, status } = req.query;
   try {
     const fees = await prisma.studentFee.findMany({
-      where: {
-        ...(academicYearId && { academicYearId: String(academicYearId) }),
-        ...(status && { status: status as any }),
-        student: {
-          ...(courseId && { courseId: String(courseId) }),
-        }
-      },
       include: {
         student: { select: { name: true, enrollmentNo: true } },
-        feeStructure: { include: { course: true } }
+        feeStructure: { select: { yearOfStudy: true } },
+        academicYear: { select: { label: true } }
       },
-      orderBy: { student: { name: 'asc' } }
+      orderBy: { createdAt: 'desc' }
     });
     res.json(fees);
   } catch (error) {
@@ -25,29 +18,52 @@ export const getStudentFees = async (req: Request, res: Response) => {
   }
 };
 
-export const getDefaulters = async (req: Request, res: Response) => {
+export const getStudentFeesByStudent = async (req: Request, res: Response) => {
+  const { studentId } = req.params;
+  const { all } = req.query;
+
   try {
-    const today = new Date();
-    const defaulters = await prisma.studentFee.findMany({
-      where: {
-        balance: { gt: 0 },
-        status: { in: ['PENDING', 'PARTIAL'] },
-        dueDate: { lt: today }
-      },
+    const where: any = { studentId };
+    if (all !== 'true') {
+      where.status = { in: ['PENDING', 'PARTIAL'] };
+    }
+
+    const fees = await prisma.studentFee.findMany({
+      where,
       include: {
-        student: { include: { course: true } },
-      }
+        academicYear: { select: { label: true, startDate: true } },
+        feeStructure: {
+          include: {
+            course: { select: { name: true } },
+            components: {
+              include: { feeComponent: { select: { name: true } } }
+            }
+          }
+        }
+      },
+      orderBy: { academicYear: { startDate: 'desc' } }
     });
 
-    // Grouping by course
-    const grouped = defaulters.reduce((acc: any, fee) => {
-      const courseName = fee.student.course.name;
-      if (!acc[courseName]) acc[courseName] = [];
-      acc[courseName].push(fee);
-      return acc;
-    }, {});
+    res.json(fees);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error fetching student fees' });
+  }
+};
 
-    res.json(grouped);
+export const getDefaulters = async (req: Request, res: Response) => {
+  try {
+    const defaulters = await prisma.studentFee.findMany({
+      where: {
+        status: { in: ['PENDING', 'PARTIAL'] },
+        dueDate: { lt: new Date() }
+      },
+      include: {
+        student: { select: { name: true, enrollmentNo: true, phone: true } },
+        academicYear: { select: { label: true } }
+      }
+    });
+    res.json(defaulters);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching defaulters' });
   }
@@ -58,13 +74,11 @@ export const waiveFee = async (req: Request, res: Response) => {
   const { remarks } = req.body;
 
   try {
-    const updated = await prisma.studentFee.update({
+    const fee = await prisma.studentFee.update({
       where: { id },
       data: {
         status: 'WAIVED',
-        balance: 0,
-        // Using a custom field or remarks system if available, 
-        // using updatedAt and AuditLog as primary tracking.
+        balance: 0
       }
     });
 
@@ -77,7 +91,7 @@ export const waiveFee = async (req: Request, res: Response) => {
       ipAddress: req.ip
     });
 
-    res.json(updated);
+    res.json(fee);
   } catch (error) {
     res.status(500).json({ message: 'Error waiving fee' });
   }
