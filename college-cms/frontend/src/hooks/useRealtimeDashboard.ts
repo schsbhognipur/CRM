@@ -18,6 +18,8 @@ export const useRealtimeDashboard = () => {
     }
 
     try {
+      if (!supabaseClient) return;
+
       const channel = supabaseClient
         .channel('transactions-db-changes')
         .on(
