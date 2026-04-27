@@ -89,19 +89,19 @@ const ManageCategoriesPanel: React.FC<ManageCategoriesPanelProps> = ({ open, onC
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-y-0 right-0 w-full max-w-md bg-white dark:bg-slate-900 z-[110] shadow-2xl flex flex-col border-l dark:border-slate-800"
+            className="fixed inset-y-0 right-0 w-full max-w-md bg-white  z-[110] shadow-2xl flex flex-col border-l "
           >
-            <div className="p-6 border-b dark:border-slate-800 flex items-center justify-between">
+            <div className="p-6 border-b  flex items-center justify-between">
                <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-600">
                      <Tag size={20} />
                   </div>
                   <div>
-                    <h2 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight">Manage Categories</h2>
+                    <h2 className="text-lg font-black text-slate-800  uppercase tracking-tight">Manage Categories</h2>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Expense Configuration</p>
                   </div>
                </div>
-               <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 transition-colors">
+               <button onClick={onClose} className="p-2 hover:bg-slate-100  rounded-lg text-slate-400 transition-colors">
                   <X size={20} />
                </button>
             </div>
@@ -113,13 +113,13 @@ const ManageCategoriesPanel: React.FC<ManageCategoriesPanelProps> = ({ open, onC
                  </div>
               ) : (
                 categories.map((cat: any) => (
-                  <div key={cat.id} className="p-4 rounded-2xl border-2 border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 shadow-sm flex flex-col gap-3">
+                  <div key={cat.id} className="p-4 rounded-2xl border-2 border-slate-100  bg-white  shadow-sm flex flex-col gap-3">
                      <div className="flex items-center justify-between">
                         {editingId === cat.id ? (
                            <input
                              type="text"
                              autoFocus
-                             className="flex-1 bg-slate-50 dark:bg-slate-900 border-2 border-indigo-600 outline-none px-3 py-1.5 rounded-lg text-sm font-bold text-slate-900 dark:text-white"
+                             className="flex-1 bg-slate-50  border-2 border-indigo-600 outline-none px-3 py-1.5 rounded-lg text-sm font-bold text-slate-900 "
                              value={editName}
                              onChange={(e) => setEditName(e.target.value)}
                              onBlur={() => handleUpdateName(cat.id)}
@@ -130,7 +130,7 @@ const ManageCategoriesPanel: React.FC<ManageCategoriesPanelProps> = ({ open, onC
                              className="flex-1 cursor-pointer group"
                              onClick={() => { setEditingId(cat.id); setEditName(cat.name); }}
                            >
-                              <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase flex items-center gap-2">
+                              <h3 className="text-sm font-black text-slate-800  uppercase flex items-center gap-2">
                                  {cat.name} 
                                  <Edit2 size={12} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                               </h3>
@@ -144,7 +144,7 @@ const ManageCategoriesPanel: React.FC<ManageCategoriesPanelProps> = ({ open, onC
                              checked={cat.isActive}
                              onChange={() => handleToggleActive(cat.id, cat.isActive)}
                           />
-                          <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-emerald-500"></div>
+                          <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer  peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all  peer-checked:bg-emerald-500"></div>
                         </label>
                      </div>
                   </div>
@@ -154,16 +154,16 @@ const ManageCategoriesPanel: React.FC<ManageCategoriesPanelProps> = ({ open, onC
               {!showAdd ? (
                  <button 
                    onClick={() => setShowAdd(true)}
-                   className="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl text-slate-500 hover:text-indigo-600 hover:border-indigo-600 hover:bg-indigo-50/50 transition-all text-xs font-black uppercase tracking-widest"
+                   className="w-full flex items-center justify-center gap-2 py-4 border-2 border-dashed border-slate-200  rounded-2xl text-slate-500 hover:text-indigo-600 hover:border-indigo-600 hover:bg-indigo-50/50 transition-all text-xs font-black uppercase tracking-widest"
                  >
                     <PlusCircle size={16} /> Add Category
                  </button>
               ) : (
-                 <div className="p-4 rounded-2xl border-2 border-indigo-600 bg-indigo-50/30 dark:bg-indigo-900/20 space-y-3">
+                 <div className="p-4 rounded-2xl border-2 border-indigo-600 bg-indigo-50/30  space-y-3">
                     <input 
                       type="text" 
                       placeholder="Category Name" 
-                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border dark:border-slate-700 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-600"
+                      className="w-full px-3 py-2 rounded-xl bg-white  border  text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-600"
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
                       autoFocus
@@ -171,7 +171,7 @@ const ManageCategoriesPanel: React.FC<ManageCategoriesPanelProps> = ({ open, onC
                     <input 
                       type="text" 
                       placeholder="Optional Description" 
-                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-indigo-600"
+                      className="w-full px-3 py-2 rounded-xl bg-white  border  text-sm outline-none focus:ring-2 focus:ring-indigo-600"
                       value={newDesc}
                       onChange={(e) => setNewDesc(e.target.value)}
                     />

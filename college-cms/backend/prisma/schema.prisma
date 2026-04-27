@@ -8,6 +8,212 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+model User {
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         Role
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+  auditLogs    AuditLog[]
+  transactions Transaction[]
+}
+
+model AcademicYear {
+  id            String         @id @default(uuid())
+  label         String         @unique
+  startDate     DateTime
+  endDate       DateTime
+  isActive      Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  feeStructures FeeStructure[]
+  students      Student[]
+  studentFees   StudentFee[]
+}
+
+model Course {
+  id            String         @id @default(uuid())
+  name          CourseName     @unique
+  durationYears Int
+  description   String?
+  createdAt     DateTime       @default(now())
+  feeStructures FeeStructure[]
+  students      Student[]
+}
+
+model FeeComponent {
+  id                  String                  @id @default(uuid())
+  name                String                  @unique
+  description         String?
+  isActive            Boolean                 @default(true)
+  createdAt           DateTime                @default(now())
+  structureComponents FeeStructureComponent[]
+}
+
+model FeeStructure {
+  id             String                  @id @default(uuid())
+  courseId       String
+  academicYearId String
+  yearOfStudy    Int
+  totalAmount    Decimal                 @db.Decimal(12, 2)
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  academicYear   AcademicYear            @relation(fields: [academicYearId], references: [id])
+  course         Course                  @relation(fields: [courseId], references: [id])
+  components     FeeStructureComponent[]
+  studentFees    StudentFee[]
+
+  @@unique([courseId, academicYearId, yearOfStudy])
+}
+
+model FeeStructureComponent {
+  id             String       @id @default(uuid())
+  feeStructureId String
+  feeComponentId String
+  amount         Decimal      @db.Decimal(12, 2)
+  feeComponent   FeeComponent @relation(fields: [feeComponentId], references: [id])
+  feeStructure   FeeStructure @relation(fields: [feeStructureId], references: [id], onDelete: Cascade)
+
+  @@unique([feeStructureId, feeComponentId])
+}
+
+model Student {
+  id             String        @id @default(uuid())
+  enrollmentNo   String        @unique
+  name           String
+  fatherName     String
+  motherName     String
+  phone          String
+  alternatePhone String?
+  email          String?
+  dob            DateTime
+  gender         Gender
+  address        String
+  city           String
+  state          String
+  pinCode        String
+  courseId       String
+  academicYearId String
+  yearOfStudy    Int
+  batchYear      Int
+  status         StudentStatus @default(ACTIVE)
+  photoUrl       String?
+  aadharNo       String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  academicYear   AcademicYear  @relation(fields: [academicYearId], references: [id])
+  course         Course        @relation(fields: [courseId], references: [id])
+  fees           StudentFee[]
+  transactions   Transaction[]
+
+  @@index([enrollmentNo])
+  @@index([phone])
+  @@index([name])
+}
+
+model StudentFee {
+  id             String        @id @default(uuid())
+  studentId      String
+  feeStructureId String
+  academicYearId String
+  totalAmount    Decimal       @db.Decimal(12, 2)
+  paidAmount     Decimal       @default(0) @db.Decimal(12, 2)
+  balance        Decimal       @db.Decimal(12, 2)
+  dueDate        DateTime?
+  status         FeeStatus     @default(PENDING)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  discount       Decimal       @default(0) @db.Decimal(12, 2)
+  discountReason String?
+  discountType   String        @default("FLAT")
+  payableAmount  Decimal       @default(0) @db.Decimal(12, 2)
+  academicYear   AcademicYear  @relation(fields: [academicYearId], references: [id])
+  feeStructure   FeeStructure  @relation(fields: [feeStructureId], references: [id])
+  student        Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  transactions   Transaction[]
+
+  @@index([studentId])
+  @@index([status])
+  @@index([academicYearId])
+}
+
+model ExpenseCategory {
+  id           String        @id @default(uuid())
+  name         String        @unique
+  description  String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  transactions Transaction[]
+}
+
+model Transaction {
+  id                String             @id @default(uuid())
+  type              TransactionType
+  subType           TransactionSubType
+  amount            Decimal            @db.Decimal(12, 2)
+  transactionDate   DateTime           @default(now())
+  paymentMode       PaymentMode
+  referenceNo       String?
+  receiptNo         String             @unique
+  description       String?
+  remarks           String?
+  studentId         String?
+  studentFeeId      String?
+  expenseCategoryId String?
+  recordedById      String
+  createdAt         DateTime           @default(now())
+  deletedAt         DateTime?
+  deletedReason     String?
+  invoiceNo         String?            @db.VarChar(50)
+  receipt           Receipt?
+  expenseCategory   ExpenseCategory?   @relation(fields: [expenseCategoryId], references: [id])
+  recordedBy        User               @relation(fields: [recordedById], references: [id])
+  studentFee        StudentFee?        @relation(fields: [studentFeeId], references: [id])
+  student           Student?           @relation(fields: [studentId], references: [id])
+
+  @@index([transactionDate])
+  @@index([type, subType])
+  @@index([studentId])
+  @@index([recordedById])
+}
+
+model Receipt {
+  id            String      @id @default(uuid())
+  transactionId String      @unique
+  receiptNo     String      @unique
+  issuedTo      String
+  amount        Decimal     @db.Decimal(12, 2)
+  createdAt     DateTime    @default(now())
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String?
+  oldValue  Json?
+  newValue  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+model Counter {
+  id    String @id
+  value Int    @default(0)
+}
+
 enum Role {
   SUPER_ADMIN
   ADMIN
@@ -57,218 +263,4 @@ enum PaymentMode {
   UPI
   BANK_TRANSFER
   DD
-}
-
-model User {
-  id           String   @id @default(uuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         Role
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  deletedAt    DateTime?
-
-  transactions Transaction[]
-  auditLogs    AuditLog[]
-}
-
-model AcademicYear {
-  id        String   @id @default(uuid())
-  label     String   @unique // e.g., "2024-25"
-  startDate DateTime
-  endDate   DateTime
-  isActive  Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  feeStructures FeeStructure[]
-  students      Student[]
-  studentFees   StudentFee[]
-}
-
-model Course {
-  id            String     @id @default(uuid())
-  name          CourseName @unique
-  durationYears Int
-  description   String?
-  createdAt     DateTime   @default(now())
-
-  feeStructures FeeStructure[]
-  students      Student[]
-}
-
-model FeeComponent {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-
-  structureComponents FeeStructureComponent[]
-}
-
-model FeeStructure {
-  id             String   @id @default(uuid())
-  courseId       String
-  academicYearId String
-  yearOfStudy    Int
-  totalAmount    Decimal  @db.Decimal(12, 2)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  course       Course       @relation(fields: [courseId], references: [id])
-  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
-  
-  components   FeeStructureComponent[]
-  studentFees  StudentFee[]
-
-  @@unique([courseId, academicYearId, yearOfStudy])
-}
-
-model FeeStructureComponent {
-  id             String  @id @default(uuid())
-  feeStructureId String
-  feeComponentId String
-  amount         Decimal @db.Decimal(12, 2)
-
-  feeStructure FeeStructure @relation(fields: [feeStructureId], references: [id], onDelete: Cascade)
-  feeComponent FeeComponent @relation(fields: [feeComponentId], references: [id])
-
-  @@unique([feeStructureId, feeComponentId])
-}
-
-model Student {
-  id             String        @id @default(uuid())
-  enrollmentNo   String        @unique
-  name           String
-  fatherName     String
-  motherName     String
-  phone          String
-  alternatePhone String?
-  email          String?
-  dob            DateTime
-  gender         Gender
-  address        String
-  city           String
-  state          String
-  pinCode        String
-  courseId       String
-  academicYearId String
-  yearOfStudy    Int
-  batchYear      Int
-  status         StudentStatus @default(ACTIVE)
-  photoUrl       String?
-  aadharNo       String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-
-  course       Course       @relation(fields: [courseId], references: [id])
-  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
-
-  fees         StudentFee[]
-  transactions Transaction[]
-
-  @@index([enrollmentNo])
-  @@index([phone])
-  @@index([name])
-}
-
-model StudentFee {
-  id             String       @id @default(uuid())
-  studentId      String
-  feeStructureId String
-  academicYearId String
-  totalAmount    Decimal      @db.Decimal(12, 2)
-  paidAmount     Decimal      @default(0) @db.Decimal(12, 2)
-  balance        Decimal      @db.Decimal(12, 2)
-  dueDate        DateTime?
-  status         FeeStatus    @default(PENDING)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-
-  student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  feeStructure FeeStructure @relation(fields: [feeStructureId], references: [id])
-  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
-  transactions Transaction[]
-
-  @@index([studentId])
-  @@index([status])
-  @@index([academicYearId])
-}
-
-model ExpenseCategory {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  transactions Transaction[]
-}
-
-model Transaction {
-  id                 String            @id @default(uuid())
-  type               TransactionType
-  subType            TransactionSubType
-  amount             Decimal           @db.Decimal(12, 2)
-  transactionDate    DateTime          @default(now())
-  paymentMode        PaymentMode
-  referenceNo        String?
-  receiptNo          String            @unique
-  description        String?
-  remarks            String?
-  student            Student?          @relation(fields: [studentId], references: [id])
-  studentId          String?
-  studentFee         StudentFee?       @relation(fields: [studentFeeId], references: [id])
-  studentFeeId       String?
-  expenseCategory    ExpenseCategory?  @relation(fields: [expenseCategoryId], references: [id])
-  expenseCategoryId  String?
-  recordedBy         User              @relation(fields: [recordedById], references: [id])
-  recordedById       String
-  receipt            Receipt?
-  createdAt          DateTime          @default(now())
-  deletedAt          DateTime?
-  deletedReason      String?
-  invoiceNo          String?           @db.VarChar(50)
-
-  @@index([transactionDate])
-  @@index([type, subType])
-  @@index([studentId])
-  @@index([recordedById])
-}
-
-model Receipt {
-  id            String   @id @default(uuid())
-  transactionId String   @unique
-  receiptNo     String   @unique
-  issuedTo      String
-  amount        Decimal  @db.Decimal(12, 2)
-  createdAt     DateTime @default(now())
-
-  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-}
-
-model AuditLog {
-  id           String    @id @default(uuid())
-  user         User      @relation(fields: [userId], references: [id])
-  userId       String
-  action       String
-  entity       String
-  entityId     String?
-  oldValue     Json?
-  newValue     Json?
-  ipAddress    String?
-  userAgent    String?
-  createdAt    DateTime  @default(now())
-
-  @@index([userId])
-  @@index([entity, entityId])
-  @@index([createdAt])
-}
-
-model Counter {
-  id    String @id
-  value Int    @default(0)
 }

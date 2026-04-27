@@ -31,7 +31,10 @@ const FeeStructures = () => {
   }, [selectedYearId, activeYearData]);
 
   const { data: componentsData } = useQuery({ queryKey: ['fee-components'], queryFn: settingsService.getFeeComponents });
-  const allComponents = (componentsData?.data || []).filter((c:any) => c.isActive);
+  const allComponents = React.useMemo(() => 
+    (componentsData?.data || []).filter((c:any) => c.isActive),
+    [componentsData]
+  );
 
   // Fetch structures for selected year
   const { data: structuresData, isLoading } = useQuery({
@@ -42,12 +45,24 @@ const FeeStructures = () => {
 
   const structures = structuresData?.data || [];
 
-  // Populate Matrix
+  const lastLoadedYearId = React.useRef<string | null>(null);
+
+  // Populate Matrix (only once when data is ready or selection changes)
   useEffect(() => {
-     if (courses.length > 0 && allComponents.length > 0) {
-        const newMatrix: any = {};
+     // Prevent overwriting if we are currently saving
+     if (isSaving) return;
+
+     // If the selected year is the same as the last loaded one, 
+     // and we already have some matrix data, don't overwrite user's local edits
+     if (selectedYearId === lastLoadedYearId.current && Object.keys(matrix).length > 0) {
+        return;
+     }
+
+     if (courses.length > 0 && allComponents.length > 0 && !isLoading && selectedYearId) {
+        const newMatrix: Record<string, Record<string, number>> = {};
         courses.forEach((course: any) => {
-           for(let y=1; y<=course.durationYears; y++) {
+           const duration = course.durationYears || (course.name.includes('D_PHARMA') ? 2 : 4);
+           for(let y=1; y<=duration; y++) {
               const key = `${course.id}_${y}`;
               newMatrix[key] = {};
               allComponents.forEach((c: any) => {
@@ -63,34 +78,47 @@ const FeeStructures = () => {
            }
         });
         setMatrix(newMatrix);
+        lastLoadedYearId.current = selectedYearId;
      }
-  }, [structures, courses, allComponents, selectedYearId]);
+  }, [structures, courses, allComponents, selectedYearId, isLoading, isSaving, matrix]);
+
+  const updateMatrixCell = (rowKey: string, compId: string, value: number) => {
+     setMatrix(prev => ({
+        ...prev,
+        [rowKey]: {
+           ...(prev[rowKey] || {}),
+           [compId]: value
+        }
+     }));
+  };
 
   const handleCommitMatrix = async () => {
+     const updates = Object.keys(matrix).map(rowKey => {
+        const [courseId, yearStr] = rowKey.split('_');
+        const yearOfStudy = parseInt(yearStr);
+        const components = Object.entries(matrix[rowKey])
+           .filter(([_, amt]) => amt > 0)
+           .map(([id, amount]) => ({ feeComponentId: id, amount }));
+        
+        return { courseId, yearOfStudy, components };
+     }).filter(u => u.components.length > 0);
+
+     if (updates.length === 0) {
+        toast.error('Matrix is empty. No data to commit.');
+        return;
+     }
+
      setIsSaving(true);
      try {
-        await Promise.all(Object.keys(matrix).map(async (rowKey) => {
-           const [courseId, yearStr] = rowKey.split('_');
-           const yearOfStudy = parseInt(yearStr);
-           const struct = structures.find((s:any) => s.courseId === courseId && s.yearOfStudy === yearOfStudy);
-           
-           const components = Object.entries(matrix[rowKey]).filter(([_, amt]) => amt > 0).map(([id, amount]) => ({ feeComponentId: id, amount }));
-           
-           if (struct) {
-              await settingsService.updateFeeStructure(struct.id, { components });
-           } else {
-              if (components.length > 0) {
-                 await settingsService.createFeeStructure({
-                    courseId, academicYearId: selectedYearId, yearOfStudy, components
-                 });
-              }
-           }
-        }));
+        await settingsService.bulkUpdateFeeStructures({
+           academicYearId: selectedYearId,
+           updates
+        });
         
-        toast.success('Omni-Matrix synced and ledgers committed globally');
-        queryClient.invalidateQueries({ queryKey: ['fee-structures'] });
+        toast.success('Omni-Matrix synchronized and ledgers committed globally');
+        await queryClient.invalidateQueries({ queryKey: ['fee-structures'] });
      } catch (err: any) {
-        toast.error('Matrix sync failed. Verify input channels.');
+        toast.error(err.response?.data?.message || 'Matrix sync failed. Verify input channels.');
      } finally {
         setIsSaving(false);
      }
@@ -109,7 +137,7 @@ const FeeStructures = () => {
         <div>
           <div className="flex items-center gap-3 mb-1">
              <Layers className="text-indigo-600" size={32} />
-             <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase">Omni-Matrix Operations</h1>
+             <h1 className="text-3xl font-black text-slate-900  tracking-tight uppercase">Omni-Matrix Operations</h1>
           </div>
           <p className="text-[12px] text-slate-500 font-bold uppercase tracking-widest pl-1">Dense Spreadsheet Financial Architecture</p>
         </div>
@@ -118,7 +146,7 @@ const FeeStructures = () => {
            <select 
               value={selectedYearId}
               onChange={e => setSelectedYearId(e.target.value)}
-              className="px-6 py-4 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700/50 focus:border-indigo-600 rounded-2xl font-black uppercase tracking-widest outline-none text-slate-700 dark:text-white min-w-[250px] shadow-sm cursor-pointer transition-all"
+              className="px-6 py-4 bg-white  border-2 border-slate-200  focus:border-indigo-600 rounded-2xl font-black uppercase tracking-widest outline-none text-slate-700  min-w-[250px] shadow-sm cursor-pointer transition-all"
            >
               <option value="" disabled>Select Timeline</option>
               {academicYears.map((ay: any) => <option key={ay.id} value={ay.id}>{ay.label} {ay.isActive ? '(Active)' : ''}</option>)}
@@ -136,20 +164,20 @@ const FeeStructures = () => {
       </div>
 
       {(!selectedYearId || isLoading) ? (
-         <div className="p-16 mt-8 text-center bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-[2.5rem]">
+         <div className="p-16 mt-8 text-center bg-white  border-2 border-slate-100  rounded-[2.5rem]">
             {isLoading ? <Loader2 size={32} className="animate-spin mx-auto text-indigo-600" /> : <p className="text-xs font-black uppercase tracking-widest text-slate-400">Awaiting Timeline Selection</p>}
          </div>
       ) : (
-         <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 overflow-hidden mt-6">
+         <div className="bg-white  rounded-[2.5rem] shadow-2xl shadow-slate-200/50  border border-slate-100  overflow-hidden mt-6">
             <div className="overflow-x-auto custom-scrollbar">
                <table className="w-full text-left border-collapse">
                   <thead>
-                     <tr className="bg-slate-50/80 dark:bg-slate-900/80 border-b border-slate-100 dark:border-slate-800 bg-opacity-80 backdrop-blur-md">
-                        <th className="px-6 py-5 whitespace-nowrap text-[10px] font-black uppercase tracking-widest text-slate-400 border-r border-slate-100 dark:border-slate-800">
+                     <tr className="bg-slate-50/80  border-b border-slate-100  bg-opacity-80 backdrop-blur-md">
+                        <th className="px-6 py-5 whitespace-nowrap text-[10px] font-black uppercase tracking-widest text-slate-400 border-r border-slate-100 ">
                            Vector Node
                         </th>
                         {allComponents.map((c: any) => (
-                           <th key={c.id} className="px-6 py-5 whitespace-nowrap text-[10px] font-black uppercase tracking-widest text-slate-500 border-r border-slate-100 dark:border-slate-800 text-center">
+                           <th key={c.id} className="px-6 py-5 whitespace-nowrap text-[10px] font-black uppercase tracking-widest text-slate-500 border-r border-slate-100  text-center">
                               {c.name}
                            </th>
                         ))}
@@ -158,38 +186,31 @@ const FeeStructures = () => {
                         </th>
                      </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  <tbody className="divide-y divide-slate-100 ">
                      {courses.map((course: any) => {
-                        return Array.from({ length: course.durationYears }).map((_, i) => {
+                        const duration = course.durationYears || (course.name.includes('D_PHARMA') ? 2 : 4);
+                        return Array.from({ length: duration }).map((_, i) => {
                            const y = i + 1;
                            const rowKey = `${course.id}_${y}`;
                            const rowData = matrix[rowKey] || {};
-                           const total = Object.values(rowData).reduce((a, b) => a + Number(b), 0);
+                           const total = Object.values(rowData).reduce((a, b: any) => a + Number(b), 0);
                            
                            return (
-                              <tr key={rowKey} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors group">
-                                 <td className="px-6 py-4 whitespace-nowrap border-r border-slate-50 dark:border-slate-800/50 w-64 bg-slate-50/30 dark:bg-slate-900/10">
-                                    <p className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">{course.name.replace(/_/g, '. ')}</p>
+                              <tr key={rowKey} className="hover:bg-slate-50/50  transition-colors group">
+                                 <td className="px-6 py-4 whitespace-nowrap border-r border-slate-50  w-64 bg-slate-50/30 ">
+                                    <p className="text-sm font-black text-slate-900  uppercase tracking-tight">{course.name.replace(/_/g, '. ')}</p>
                                     <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mt-0.5">Year {y} Matrix</p>
                                  </td>
 
                                  {allComponents.map((c: any) => (
-                                    <td key={c.id} className="p-2 border-r border-slate-50 dark:border-slate-800/50 min-w-[140px] focus-within:bg-indigo-50/30 dark:focus-within:bg-indigo-900/10 transition-colors">
-                                       <div className="relative flex items-center">
-                                          <span className="absolute left-3 text-slate-400 font-black text-[11px]">₹</span>
-                                          <input 
-                                             type="number"
-                                             min="0"
-                                             value={rowData[c.id] === 0 ? '' : rowData[c.id]}
-                                             placeholder="0"
-                                             onChange={(e) => setMatrix(prev => ({ ...prev, [rowKey]: { ...prev[rowKey], [c.id]: Number(e.target.value) || 0 } }))}
-                                             className="w-full bg-transparent pl-8 pr-3 py-3 border-2 border-transparent focus:border-indigo-600 focus:bg-white dark:focus:bg-slate-950 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-200 dark:placeholder:text-slate-700"
-                                          />
-                                       </div>
-                                    </td>
+                                    <MatrixCell 
+                                       key={c.id} 
+                                       value={rowData[c.id]} 
+                                       onChange={(val) => updateMatrixCell(rowKey, c.id, val)} 
+                                    />
                                  ))}
 
-                                 <td className="px-6 py-4 whitespace-nowrap text-right bg-slate-50/30 dark:bg-slate-900/10">
+                                 <td className="px-6 py-4 whitespace-nowrap text-right bg-slate-50/30 ">
                                     <p className="text-sm font-black text-indigo-600">₹{total.toLocaleString()}</p>
                                  </td>
                               </tr>
@@ -204,5 +225,35 @@ const FeeStructures = () => {
     </div>
   );
 };
+
+const MatrixCell = React.memo(({ value, onChange }: { value: number | undefined, onChange: (val: number) => void }) => {
+   const [localValue, setLocalValue] = useState<string>(value?.toString() || '');
+
+   useEffect(() => {
+      setLocalValue(value === 0 || !value ? '' : value.toString());
+   }, [value]);
+
+   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      setLocalValue(val);
+      onChange(Number(val) || 0);
+   };
+
+   return (
+      <td className="p-2 border-r border-slate-50  min-w-[140px] focus-within:bg-indigo-50/30  transition-colors">
+         <div className="relative flex items-center">
+            <span className="absolute left-3 text-slate-400 font-black text-[11px]">₹</span>
+            <input 
+               type="number"
+               min="0"
+               value={localValue}
+               placeholder="0"
+               onChange={handleChange}
+               className="w-full bg-transparent pl-8 pr-3 py-3 border-2 border-transparent focus:border-indigo-600 focus:bg-white  rounded-xl text-sm font-bold text-slate-700  outline-none transition-all placeholder:text-slate-200 "
+            />
+         </div>
+      </td>
+   );
+});
 
 export default FeeStructures;

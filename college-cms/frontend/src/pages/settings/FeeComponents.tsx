@@ -70,7 +70,7 @@ const FeeComponents = () => {
         <div>
           <div className="flex items-center gap-3 mb-1">
              <LayoutGrid className="text-indigo-600" size={32} />
-             <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase">Billing Components</h1>
+             <h1 className="text-3xl font-black text-slate-900  tracking-tight uppercase">Billing Components</h1>
           </div>
           <p className="text-slate-500 font-medium ml-1">Fee Structure Base Classes</p>
         </div>
@@ -83,10 +83,10 @@ const FeeComponents = () => {
         </button>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border dark:border-slate-700 overflow-hidden">
+      <div className="bg-white  rounded-[2.5rem] shadow-xl shadow-slate-200/50  border  overflow-hidden">
          <div className="overflow-x-auto pb-6 mt-2">
             <table className="w-full">
-               <thead className="border-b dark:border-slate-700">
+               <thead className="border-b ">
                   <tr>
                      <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Base Name</th>
                      <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Description Parameter</th>
@@ -94,14 +94,14 @@ const FeeComponents = () => {
                      <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Live Status</th>
                   </tr>
                </thead>
-               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+               <tbody className="divide-y divide-slate-100 ">
                   {isAdding && (
-                     <tr className="bg-indigo-50/50 dark:bg-indigo-900/10">
+                     <tr className="bg-indigo-50/50 ">
                         <td className="px-8 py-4">
-                           <input autoFocus type="text" placeholder="Designation" value={newName} onChange={e => setNewName(e.target.value)} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border-2 border-indigo-600 rounded-lg text-sm font-bold outline-none" />
+                           <input autoFocus type="text" placeholder="Designation" value={newName} onChange={e => setNewName(e.target.value)} className="w-full px-3 py-2 bg-white  border-2 border-indigo-600 rounded-lg text-sm font-bold outline-none" />
                         </td>
                         <td className="px-8 py-4">
-                           <input type="text" placeholder="Optional" value={newDesc} onChange={e => setNewDesc(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateNew()} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border-2 border-transparent focus:border-indigo-600 rounded-lg text-sm outline-none" />
+                           <input type="text" placeholder="Optional" value={newDesc} onChange={e => setNewDesc(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateNew()} className="w-full px-3 py-2 bg-white  border-2 border-transparent focus:border-indigo-600 rounded-lg text-sm outline-none" />
                         </td>
                         <td className="px-8 py-4 text-xs font-bold text-slate-400">-</td>
                         <td className="px-8 py-4">
@@ -117,28 +117,28 @@ const FeeComponents = () => {
                      <tr><td colSpan={4} className="p-10 text-center animate-pulse text-indigo-600">Loading Configuration...</td></tr>
                   ) : (
                      components.map((c: any) => (
-                        <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
+                        <tr key={c.id} className="hover:bg-slate-50  transition-colors">
                            <td className="px-8 py-5">
                               {editingId === c.id ? (
-                                 <input autoFocus type="text" value={editName} onChange={e => setEditName(e.target.value)} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border-2 border-indigo-600 rounded-lg text-sm font-bold outline-none" />
+                                 <input autoFocus type="text" value={editName} onChange={e => setEditName(e.target.value)} className="w-full px-3 py-2 bg-white  border-2 border-indigo-600 rounded-lg text-sm font-bold outline-none" />
                               ) : (
-                                 <span onClick={() => { setEditingId(c.id); setEditName(c.name); setEditDesc(c.description || ''); }} className="text-sm font-black text-slate-800 dark:text-white uppercase cursor-pointer hover:text-indigo-600 decoration-dashed underline-offset-4 hover:underline">
+                                 <span onClick={() => { setEditingId(c.id); setEditName(c.name); setEditDesc(c.description || ''); }} className="text-sm font-black text-slate-800  uppercase cursor-pointer hover:text-indigo-600 decoration-dashed underline-offset-4 hover:underline">
                                     {c.name}
                                  </span>
                               )}
                            </td>
                            <td className="px-8 py-5">
                               {editingId === c.id ? (
-                                 <input type="text" value={editDesc} onChange={e => setEditDesc(e.target.value)} onBlur={() => handleSaveUpdate(c.id)} onKeyDown={e => e.key === 'Enter' && handleSaveUpdate(c.id)} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border-2 border-transparent focus:border-indigo-600 rounded-lg text-sm outline-none" />
+                                 <input type="text" value={editDesc} onChange={e => setEditDesc(e.target.value)} onBlur={() => handleSaveUpdate(c.id)} onKeyDown={e => e.key === 'Enter' && handleSaveUpdate(c.id)} className="w-full px-3 py-2 bg-white  border-2 border-transparent focus:border-indigo-600 rounded-lg text-sm outline-none" />
                               ) : (
                                  <span className="text-xs font-bold text-slate-500">{c.description || <span className="opacity-40 italic">Null</span>}</span>
                               )}
                            </td>
-                           <td className="px-8 py-5 text-xs font-black text-slate-900 dark:text-white">{c._count?.structureComponents || 0}</td>
+                           <td className="px-8 py-5 text-xs font-black text-slate-900 ">{c._count?.structureComponents || 0}</td>
                            <td className="px-8 py-5">
                               <label className="relative inline-flex items-center cursor-pointer">
                                  <input type="checkbox" className="sr-only peer" checked={c.isActive} onChange={() => handleToggleActive(c.id, c.isActive)} />
-                                 <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
+                                 <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer  peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all  peer-checked:bg-indigo-600"></div>
                               </label>
                            </td>
                         </tr>

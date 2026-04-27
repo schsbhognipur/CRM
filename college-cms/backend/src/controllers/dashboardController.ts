@@ -14,28 +14,34 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
     const now = new Date();
     const firstDayMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // 🔥 SENIOR OPTIMIZATION: Parallel execution of 6 independent metrics
+    const activeYear = await prisma.academicYear.findFirst({ where: { isActive: true } });
+
     const [
-      totalStudents,
-      newStudentsMonth,
-      totalExpected,
-      totalPaid,
-      monthCredit,
-      monthDebit,
-      recentTransactions
+      studentCounts,
+      feeSums,
+      financeStatsRaw,
+      recentTransactions,
+      allFees
     ] = await Promise.all([
-      prisma.student.count({ where: { status: 'ACTIVE' } }),
-      prisma.student.count({ where: { createdAt: { gte: firstDayMonth } } }),
-      prisma.studentFee.aggregate({ _sum: { totalAmount: true } }),
-      prisma.studentFee.aggregate({ _sum: { paidAmount: true } }),
-      prisma.transaction.aggregate({
-        where: { type: 'CREDIT', transactionDate: { gte: firstDayMonth } },
-        _sum: { amount: true }
+      // Combined student counts
+      Promise.all([
+        prisma.student.count({ where: { status: 'ACTIVE' } }),
+        prisma.student.count({ where: { createdAt: { gte: firstDayMonth } } })
+      ]),
+      // Single fee aggregate
+      prisma.studentFee.aggregate({ 
+        _sum: { 
+          payableAmount: true, 
+          paidAmount: true, 
+          discount: true 
+        } 
+      } as any),
+      // Unified transaction data for finance cards
+      prisma.transaction.findMany({
+        where: { transactionDate: { gte: firstDayMonth } },
+        select: { amount: true, type: true, transactionDate: true }
       }),
-      prisma.transaction.aggregate({
-        where: { type: 'DEBIT', transactionDate: { gte: firstDayMonth } },
-        _sum: { amount: true }
-      }),
+      // Recent feed
       prisma.transaction.findMany({
         take: 5,
         orderBy: { transactionDate: 'desc' },
@@ -47,13 +53,81 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
           description: true,
           student: { select: { name: true } }
         }
-      })
+      } as any),
+      // Course stats data
+      prisma.studentFee.findMany({
+        select: {
+          payableAmount: true,
+          paidAmount: true,
+          student: {
+            select: {
+              course: {
+                select: { name: true }
+              }
+            }
+          }
+        }
+      } as any)
     ]);
 
-    const expected = Number(totalExpected._sum.totalAmount || 0);
-    const paid = Number(totalPaid._sum.paidAmount || 0);
+    const [totalStudents, newStudentsMonth] = studentCounts;
+    const expected = Number((feeSums as any)._sum.payableAmount || 0);
+    const paid = Number((feeSums as any)._sum.paidAmount || 0);
+    const discount = Number((feeSums as any)._sum.discount || 0);
+
+    // Calculate finances from memory to save 3 queries
+    // Precision Today Calculation (IST)
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(now.getTime() + istOffset);
+    const todayIST = new Date(istDate.getFullYear(), istDate.getMonth(), istDate.getDate());
+    todayIST.setTime(todayIST.getTime() - istOffset);
+
+    console.log('[DEBUG] Dashboard TodayIST:', todayIST.toISOString());
+
+    let mCredit = 0;
+    let tCredit = 0;
+    let mDebit = 0;
+    let tDebit = 0;
+    let totalDebit = 0;
+
+    financeStatsRaw.forEach(tx => {
+      const amt = Number(tx.amount);
+      if (tx.type === 'CREDIT') {
+        mCredit += amt;
+        if (new Date(tx.transactionDate) >= todayIST) tCredit += amt;
+      } else {
+        mDebit += amt;
+        totalDebit += amt; // Assuming raw contains all or we need another aggregate
+        if (new Date(tx.transactionDate) >= todayIST) tDebit += amt;
+      }
+    });
+
+    // For All Time Expense, we need a separate aggregate if raw only has this month
+    const totalExpenseAgg = await prisma.transaction.aggregate({
+       where: { type: 'DEBIT', deletedAt: null },
+       _sum: { amount: true }
+    });
+
+    // Group fees by course name efficiently
+    const statsMap: Record<string, { expected: number, paid: number }> = {};
+    allFees.forEach((f: any) => {
+      const courseName = f.student.course.name;
+      if (!statsMap[courseName]) {
+        statsMap[courseName] = { expected: 0, paid: 0 };
+      }
+      statsMap[courseName].expected += Number(f.payableAmount);
+      statsMap[courseName].paid += Number(f.paidAmount);
+    });
+
+    const courseStats = Object.entries(statsMap).map(([name, stats]) => ({
+      name,
+      expected: stats.expected,
+      paid: stats.paid,
+      yield: stats.expected > 0 ? Math.round((stats.paid / stats.expected) * 100) : 0
+    }));
     
     const summary = {
+      activeYear: activeYear?.label || 'N/A',
       students: {
         total: totalStudents,
         new_this_month: newStudentsMonth
@@ -61,17 +135,22 @@ export const getDashboardSummary = async (req: Request, res: Response) => {
       fees: {
         totalExpected: expected,
         totalPaid: paid,
+        totalDiscount: discount,
         totalOutstanding: expected - paid,
         collectionRate: expected > 0 ? Math.round((paid / expected) * 100) : 0
       },
       finances: {
-        monthCredit: Number(monthCredit._sum.amount || 0),
-        monthDebit: Number(monthDebit._sum.amount || 0)
+        monthCredit: mCredit,
+        todayCredit: tCredit,
+        monthDebit: mDebit,
+        todayDebit: tDebit,
+        totalDebit: Number(totalExpenseAgg._sum.amount || 0)
       },
+      courseStats,
       recentTransactions
     };
 
-    // Cache for 2 minutes to reduce DB load
+    // Cache for 2 minutes
     cache.set(cacheKey, summary, 120);
     
     res.json(summary);

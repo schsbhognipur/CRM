@@ -76,6 +76,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  console.log("[DEBUG] AuthContext.tsx: AuthProvider rendering, user:", user, "isLoading:", isLoading);
+
   return (
     <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, login, logout, refreshUser }}>
       {children}

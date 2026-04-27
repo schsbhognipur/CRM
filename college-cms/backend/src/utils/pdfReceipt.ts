@@ -1,13 +1,16 @@
 import PDFDocument from 'pdfkit';
 import { Response } from 'express';
 import converter from 'number-to-words';
+import path from 'path';
 
-export const generateReceiptPDFInternal = (res: Response, tx: any) => {
+export const generateReceiptPDFInternal = (res: Response, tx: any, theme: string = 'modern') => {
+  const accentColor = '#101828'; // Deep Onyx for high repute
+  const secondaryColor = '#475467';
   const doc = new PDFDocument({ 
     size: 'A4', 
     margin: 50,
     info: {
-      Title: `Fee Receipt - ${tx.receiptNo}`,
+      Title: `Institutional Fee Receipt - ${tx.receiptNo}`,
       Author: 'SCHS Pharmacy College CRM'
     }
   });
@@ -16,96 +19,104 @@ export const generateReceiptPDFInternal = (res: Response, tx: any) => {
   res.setHeader('Content-Disposition', `attachment; filename=Receipt-${tx.receiptNo}.pdf`);
   doc.pipe(res);
 
-  // --- HEADER SECTION ---
-  doc.fontSize(24).font('Helvetica-Bold').text('SCHS PHARMACY COLLEGE', { align: 'center' });
-  doc.fontSize(12).font('Helvetica').text('INSTITUTIONAL MANAGEMENT SYSTEM', { align: 'center' });
-  doc.fontSize(10).text('Institutional Registry • Fee Collection Division', { align: 'center' });
+  // --- LOGO & HEADER SECTION ---
+  const logoPath = path.join(process.cwd(), 'assets', 'logo.png');
   
-  doc.moveDown();
-  doc.rect(50, doc.y, 495, 2).fill('#4F46E5');
+  try {
+    doc.image(logoPath, 50, 45, { width: 55 });
+  } catch (e) {
+    console.error('Logo not found');
+  }
+
+  // Institutional Identity Header
+  doc.fillColor(accentColor).fontSize(22).font('Helvetica-Bold').text('SCHS PHARMACY COLLEGE', 115, 50);
+  doc.fillColor(secondaryColor).fontSize(10).font('Helvetica').text('Institution Recognized by PCI & Affiliated to Board of Technical Education', 115, 75);
+  doc.fontSize(9).text('Campus: Bhognipur, Kanpur Dehat, UP - 209111', 115, 88);
+  doc.fontSize(9).text('Contact: +91-XXXXXXXXXX | Email: info@schspharmacy.in', 115, 100);
+
+  doc.moveDown(2);
+  doc.rect(50, 125, 495, 1).fill('#EAECF0'); // Subtle divider line
+
+  // Document Title
+  doc.moveDown(2);
+  doc.fillColor(accentColor).fontSize(16).font('Helvetica-Bold').text('OFFICIAL FEE ACKNOWLEDGMENT', { align: 'center', characterSpacing: 1 });
+  
   doc.moveDown(1.5);
 
-  doc.fontSize(16).font('Helvetica-Bold').text('OFFICIAL FEE RECEIPT', { align: 'center', underline: true });
-  doc.moveDown();
+  // --- KEY TRANSACTION META ---
+  const metaY = doc.y;
+  doc.rect(50, metaY, 495, 30).fill('#F9FAFB');
+  doc.fillColor(accentColor).fontSize(10).font('Helvetica-Bold').text(`RECEIPT NO:`, 65, metaY + 10);
+  doc.font('Helvetica').text(tx.receiptNo, 140, metaY + 10);
 
-  // --- RECEIPT META ---
-  const topY = doc.y;
-  doc.fontSize(10).font('Helvetica-Bold').text(`Receipt No:`, 50, topY);
-  doc.font('Helvetica').text(tx.receiptNo, 120, topY);
+  doc.font('Helvetica-Bold').text(`ISSUE DATE:`, 400, metaY + 10);
+  doc.font('Helvetica').text(new Date(tx.transactionDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }), 475, metaY + 10);
 
-  doc.font('Helvetica-Bold').text(`Date:`, 400, topY);
-  doc.font('Helvetica').text(new Date(tx.transactionDate).toLocaleDateString('en-GB'), 450, topY);
+  doc.moveDown(2.5);
+
+  // --- STUDENT INFORMATION GRID ---
+  doc.fillColor(secondaryColor).fontSize(9).font('Helvetica-Bold').text('STUDENT INFORMATION', 50, doc.y);
+  doc.moveDown(0.5);
   
-  doc.moveDown(2);
-
-  // --- STUDENT DETAILS GRID ---
-  doc.rect(50, doc.y, 495, 120).stroke();
-  const gridY = doc.y + 10;
+  const gridTop = doc.y;
+  doc.rect(50, gridTop, 495, 120).stroke('#EAECF0');
   
-  // Row 1
-  doc.fontSize(10).font('Helvetica-Bold').text('Student Name:', 65, gridY);
-  doc.font('Helvetica').text(tx.student?.name.toUpperCase() || 'N/A', 160, gridY);
+  const drawLabelValue = (label: string, value: string, x: number, y: number) => {
+    doc.fillColor(secondaryColor).fontSize(9).font('Helvetica-Bold').text(label, x, y);
+    doc.fillColor(accentColor).fontSize(10).font('Helvetica').text(value || 'N/A', x + 90, y);
+  };
+
+  drawLabelValue('NAME:', tx.student?.name.toUpperCase(), 70, gridTop + 20);
+  drawLabelValue('ENROLLMENT:', tx.student?.enrollmentNo, 320, gridTop + 20);
   
-  doc.font('Helvetica-Bold').text('Enrollment:', 350, gridY);
-  doc.font('Helvetica').text(tx.student?.enrollmentNo || 'N/A', 440, gridY);
-
-  // Row 2
-  doc.font('Helvetica-Bold').text("Father's Name:", 65, gridY + 25);
-  doc.font('Helvetica').text(tx.student?.fatherName.toUpperCase() || 'N/A', 160, gridY + 25);
-
-  doc.font('Helvetica-Bold').text('Phone:', 350, gridY + 25);
-  doc.font('Helvetica').text(tx.student?.phone || 'N/A', 440, gridY + 25);
-
-  // Row 3
-  doc.font('Helvetica-Bold').text('Course:', 65, gridY + 50);
-  doc.font('Helvetica').text(tx.student?.course?.name.replace(/_/g, '. ') || 'N/A', 160, gridY + 50);
-
-  doc.font('Helvetica-Bold').text('Year:', 350, gridY + 50);
-  doc.font('Helvetica').text(`Year ${tx.student?.yearOfStudy || 'N/A'}`, 440, gridY + 50);
-
-  // Row 4
-  doc.font('Helvetica-Bold').text('Payment Mode:', 65, gridY + 75);
-  doc.font('Helvetica').text(tx.paymentMode, 160, gridY + 75);
-
+  drawLabelValue('GUARDIAN:', tx.student?.fatherName.toUpperCase(), 70, gridTop + 45);
+  drawLabelValue('CONTACT:', tx.student?.phone, 320, gridTop + 45);
+  
+  drawLabelValue('PROGRAM:', tx.student?.course?.name.replace(/_/g, ' '), 70, gridTop + 70);
+  drawLabelValue('STUDY YEAR:', `Year ${tx.student?.yearOfStudy}`, 320, gridTop + 70);
+  
+  drawLabelValue('PAY MODE:', tx.paymentMode, 70, gridTop + 95);
   if (tx.referenceNo) {
-    doc.font('Helvetica-Bold').text('Ref No:', 350, gridY + 75);
-    doc.font('Helvetica').text(tx.referenceNo, 440, gridY + 75);
+    drawLabelValue('REF NO:', tx.referenceNo, 320, gridTop + 95);
   }
 
   doc.moveDown(8);
 
-  // --- AMOUNT SECTION ---
-  doc.rect(50, doc.y, 495, 40).fillAndStroke('#F8FAFC', '#E2E8F0');
-  doc.fill('#1E293B').fontSize(14).font('Helvetica-Bold').text(`Total Amount Received: ₹${Number(tx.amount).toLocaleString('en-IN')}`, 65, doc.y - 30);
+  // --- FINANCIALS ---
+  const amountY = doc.y;
+  doc.rect(50, amountY, 495, 60).fill('#F8FAFC');
   
-  doc.moveDown(0.5);
+  doc.fillColor(accentColor).fontSize(14).font('Helvetica-Bold').text(`NET AMOUNT RECEIVED`, 70, amountY + 15);
+  doc.fontSize(20).text(`INR ${Number(tx.amount).toLocaleString('en-IN')}.00`, 350, amountY + 13, { align: 'right', width: 180 });
+  
   const words = converter.toWords(Number(tx.amount)).replace(/-/g, ' ');
-  const capitalizedWords = words.charAt(0).toUpperCase() + words.slice(1) + " rupees only";
-  doc.fontSize(10).font('Helvetica-Oblique').fill('#64748B').text(`(${capitalizedWords})`, 65, doc.y);
+  const capitalizedWords = words.charAt(0).toUpperCase() + words.slice(1) + " Rupees Only";
+  doc.fillColor(secondaryColor).fontSize(9).font('Helvetica-Oblique').text(`Amount in words: ${capitalizedWords}`, 70, amountY + 40);
 
-  doc.moveDown(3);
-  doc.fill('#1E293B').font('Helvetica').fontSize(10).text('Received with thanks for academic fee clearance.', { align: 'center' });
+  doc.moveDown(4);
+  doc.fillColor(secondaryColor).fontSize(9).text('This document serves as an official proof of payment towards institutional fees. Please retain this for future reference and academic clearance.', { align: 'center', width: 495 });
 
-  // --- SIGNATURE SECTION ---
+  // --- SIGNATORY SECTION ---
   doc.moveDown(6);
-  const signatureY = doc.y;
+  const sigY = doc.y;
   
-  doc.text('----------------------------------', 65, signatureY);
-  doc.text('Accountant Signature', 90, signatureY + 15);
+  const drawSig = (label: string, x: number) => {
+    doc.rect(x, sigY, 150, 0.5).fill('#D0D5DD');
+    doc.fillColor(accentColor).fontSize(10).font('Helvetica-Bold').text(label, x, sigY + 10, { width: 150, align: 'center' });
+    doc.fillColor(secondaryColor).fontSize(8).font('Helvetica').text('Digitally Verified Record', x, sigY + 22, { width: 150, align: 'center' });
+  };
 
-  doc.text('----------------------------------', 375, signatureY);
-  doc.text('Principal / HOD Signature', 400, signatureY + 15);
+  drawSig('AUTHORIZED CASHIER', 70);
+  drawSig('ADMINISTRATOR / HOD', 375);
 
-  // --- STAMP AREA ---
-  doc.dash(5, { space: 5 });
-  doc.rect(240, signatureY - 40, 100, 60).stroke();
-  doc.fontSize(8).text('OFFICIAL STAMP', 255, signatureY - 10);
-
+  // --- FOOTER ---
+  doc.fontSize(8).fillColor('#98A2B3').text('Generated via SCHS CRM Cloud Infrastructure', 50, 780, { align: 'center', width: 495 });
 
   doc.end();
 };
 
-export const generateVoucherPDFInternal = (res: Response, tx: any) => {
+export const generateVoucherPDFInternal = (res: Response, tx: any, theme: string = 'modern') => {
+  const accentColor = theme === 'modern' ? '#E11D48' : '#1E293B';
   const doc = new PDFDocument({ 
     size: 'A4', 
     margin: 50,
@@ -123,13 +134,30 @@ export const generateVoucherPDFInternal = (res: Response, tx: any) => {
   res.setHeader('Content-Disposition', `attachment; filename=Voucher-${voucherNo}.pdf`);
   doc.pipe(res);
 
-  // --- HEADER SECTION ---
-  doc.fontSize(24).font('Helvetica-Bold').text('SCHS PHARMACY COLLEGE', { align: 'center' });
-  doc.fontSize(12).font('Helvetica').text('INSTITUTIONAL MANAGEMENT SYSTEM', { align: 'center' });
-  doc.fontSize(10).text('Institutional Registry • Accounts Division', { align: 'center' });
+  // --- LOGO & HEADER SECTION ---
+  const logoPath = path.join(process.cwd(), 'assets', 'logo.png');
+  
+  try {
+    doc.image(logoPath, 50, 45, { width: 50 });
+  } catch (e) {
+    console.error('Logo not found at:', logoPath);
+  }
+
+  doc.fontSize(22).font('Helvetica-Bold').text('SCHS PHARMACY COLLEGE', 110, 50);
+  doc.fontSize(10).font('Helvetica').text('जीवा ज्योति रशीमहि', 110, 75, { characterSpacing: 1 });
+  doc.fontSize(9).font('Helvetica').text('Institutional Registry • Accounts Division', 110, 88);
+
+  // --- HOLOGRAM WATERMARK ---
+  try {
+    doc.save();
+    doc.opacity(0.04);
+    doc.rotate(-30, { origin: [300, 400] });
+    doc.image(logoPath, 100, 250, { width: 400 });
+    doc.restore();
+  } catch (e) {}
   
   doc.moveDown();
-  doc.rect(50, doc.y, 495, 2).fill('#E11D48');
+  doc.rect(50, doc.y, 495, 2).fill(accentColor);
   doc.moveDown(1.5);
 
   doc.fontSize(16).font('Helvetica-Bold').fill('black').text('EXPENSE VOUCHER', { align: 'center', underline: true });

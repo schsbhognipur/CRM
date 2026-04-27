@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { transactionService } from '../../services/transactionService';
+import { studentService } from '../../services/studentService';
 import { clsx } from 'clsx';
 import converter from 'number-to-words';
 
@@ -64,10 +65,31 @@ const FeePaymentModal: React.FC<FeePaymentModalProps> = ({ open, onClose }) => {
         setStep('PAYMENT_DETAILS');
       } else {
         setSelectedFee(null);
-        toast.error(`Matrix Empty: No fiscal ledgers generated for ${student.name}`);
+        toast.info(`No active ledger for ${student.name}. You can trigger a sync below.`);
       }
     } catch (err) {
       toast.error('Terminal fault: Failed to acquire active ledgers');
+    }
+  };
+
+  const handleManualSync = async () => {
+    if (!selectedStudent) return;
+    setIsSubmitting(true);
+    try {
+      const res = await studentService.syncStudentFee(selectedStudent.id);
+      if (res.success) {
+        toast.success('Matrix Sync Successful: Ledger generated');
+        const fees = await transactionService.getStudentFees(selectedStudent.id);
+        setStudentFees(fees);
+        if (fees.length > 0) {
+          setSelectedFee(fees[0]);
+          setStep('PAYMENT_DETAILS');
+        }
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Matrix Sync Failed: Verify Fee Structure existence');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -185,26 +207,26 @@ const FeePaymentModal: React.FC<FeePaymentModalProps> = ({ open, onClose }) => {
             initial={{ scale: 0.95, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            className="relative lg:w-[680px] w-full max-h-[90vh] bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-3xl overflow-hidden flex flex-col border dark:border-slate-700"
+            className="relative lg:w-[680px] w-full max-h-[90vh] bg-white  rounded-[2.5rem] shadow-3xl overflow-hidden flex flex-col border "
           >
             {/* Header */}
-            <div className="p-8 border-b dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/30">
+            <div className="p-8 border-b  flex justify-between items-center bg-slate-50 ">
                <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-600/30">
                      <Receipt size={24} />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Fee Collection</h2>
-                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">Automated Fiscal Terminal</p>
+                    <h2 className="text-2xl font-black text-slate-800  uppercase tracking-tight">Fee Collection</h2>
+                    <p className="text-[10px] font-black text-slate-400  uppercase tracking-widest mt-0.5">Automated Fiscal Terminal</p>
                   </div>
                </div>
-               <button onClick={handleClose} className="p-3 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-2xl transition-all">
+               <button onClick={handleClose} className="p-3 hover:bg-slate-200  rounded-2xl transition-all">
                  <X size={24} className="text-slate-400" />
                </button>
             </div>
 
             {/* Stepper Progress */}
-            <div className="px-8 py-4 bg-white dark:bg-slate-800 border-b dark:border-slate-700 flex items-center gap-4">
+            <div className="px-8 py-4 bg-white  border-b  flex items-center gap-4">
                {[
                  { id: 'FIND_STUDENT', label: 'Identity Lookup' },
                  { id: 'PAYMENT_DETAILS', label: 'Fiscal Parameters' },
@@ -214,15 +236,15 @@ const FeePaymentModal: React.FC<FeePaymentModalProps> = ({ open, onClose }) => {
                     <div className={clsx(
                       "w-6 h-6 rounded-lg text-[10px] font-black flex items-center justify-center transition-all",
                       step === s.id ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20" : 
-                      (i < ['FIND_STUDENT','PAYMENT_DETAILS','RECEIPT_PREVIEW'].indexOf(step) ? "bg-emerald-500 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-400")
+                      (i < ['FIND_STUDENT','PAYMENT_DETAILS','RECEIPT_PREVIEW'].indexOf(step) ? "bg-emerald-500 text-white" : "bg-slate-100  text-slate-400")
                     )}>
                        {i < ['FIND_STUDENT','PAYMENT_DETAILS','RECEIPT_PREVIEW'].indexOf(step) ? <CheckCircle2 size={12} /> : i + 1}
                     </div>
                     <span className={clsx(
                       "text-[10px] font-black uppercase tracking-widest leading-none",
-                      step === s.id ? "text-slate-900 dark:text-white" : "text-slate-400"
+                      step === s.id ? "text-slate-900 " : "text-slate-400"
                     )}>{s.label}</span>
-                    {i < 2 && <div className="w-8 h-[2px] bg-slate-100 dark:bg-slate-700" />}
+                    {i < 2 && <div className="w-8 h-[2px] bg-slate-100 " />}
                  </div>
                ))}
             </div>
@@ -243,7 +265,7 @@ const FeePaymentModal: React.FC<FeePaymentModalProps> = ({ open, onClose }) => {
                           type="text" 
                           ref={searchInputRef}
                           placeholder="Identify student by name, enrollment, or phone..."
-                          className="w-full pl-14 pr-6 py-5 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-indigo-600 rounded-3xl font-bold text-slate-800 dark:text-white outline-none transition-all placeholder:text-slate-400"
+                          className="w-full pl-14 pr-6 py-5 bg-slate-50  border-2 border-transparent focus:border-indigo-600 rounded-3xl font-bold text-slate-800  outline-none transition-all placeholder:text-slate-400"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                         />
@@ -251,33 +273,59 @@ const FeePaymentModal: React.FC<FeePaymentModalProps> = ({ open, onClose }) => {
 
                      <div className="space-y-3">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Registry Matches</p>
-                        {searchResults.map((student) => (
-                           <button
-                             key={student.id}
-                             onClick={() => handleSelectStudent(student)}
-                             className="w-full p-5 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-700/50 border dark:border-slate-700 rounded-3xl flex items-center justify-between group transition-all"
-                           >
-                              <div className="flex items-center gap-4">
-                                 <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/40 group-hover:text-indigo-600 transition-all font-black uppercase">
-                                    {student.name.charAt(0)}
-                                 </div>
-                                 <div className="text-left">
-                                    <p className="text-sm font-black text-slate-900 dark:text-white uppercase leading-tight">{student.name}</p>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">{student.enrollmentNo} • Year {student.yearOfStudy}</p>
-                                 </div>
-                              </div>
-                              <div className="flex items-center gap-4">
-                                 {student.fees && student.fees.length > 0 ? (
-                                    <div className="text-right">
-                                       <span className="text-xs font-black text-rose-500 bg-rose-50 dark:bg-rose-900/20 px-3 py-1.5 rounded-xl border border-rose-100 dark:border-rose-900/50 uppercase tracking-tight">₹{Number(student.fees[0].balance).toLocaleString()}</span>
+                         {searchResults.map((student) => (
+                            <div key={student.id} className="space-y-2">
+                               <button
+                                 onClick={() => handleSelectStudent(student)}
+                                 className="w-full p-5 bg-white  hover:bg-slate-50  border  rounded-3xl flex items-center justify-between group transition-all"
+                               >
+                                  <div className="flex items-center gap-4">
+                                     <div className="w-12 h-12 bg-slate-100  rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-indigo-50  group-hover:text-indigo-600 transition-all font-black uppercase">
+                                        {student.name.charAt(0)}
+                                     </div>
+                                     <div className="text-left">
+                                        <p className="text-sm font-black text-slate-900  uppercase leading-tight">{student.name}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">{student.enrollmentNo} • Year {student.yearOfStudy}</p>
+                                     </div>
+                                  </div>
+                                  <div className="flex items-center gap-4">
+                                     {student.fees && student.fees.length > 0 ? (
+                                     <div className="text-right">
+                                           <span className="text-xs font-black text-rose-500 bg-rose-50  px-3 py-1.5 rounded-xl border border-rose-100  uppercase tracking-tight">₹{Number(student.fees[0].balance).toLocaleString()}</span>
+                                        </div>
+                                     ) : (
+                                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest border border-emerald-500/20 bg-emerald-500/5 px-3 py-1.5 rounded-xl">Clearance</span>
+                                     )}
+                                     <ChevronRight size={18} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+                                  </div>
+                               </button>
+
+                               {selectedStudent?.id === student.id && studentFees.length === 0 && (
+                                 <motion.div 
+                                   initial={{ opacity: 0, y: -10 }}
+                                   animate={{ opacity: 1, y: 0 }}
+                                   className="p-4 bg-amber-50  border border-amber-100  rounded-2xl flex items-center justify-between"
+                                 >
+                                    <div className="flex items-center gap-3">
+                                       <div className="w-8 h-8 bg-amber-500 text-white rounded-lg flex items-center justify-center">
+                                          <User size={16} />
+                                       </div>
+                                       <div>
+                                          <p className="text-[10px] font-black text-amber-800  uppercase tracking-tight">No Ledger Found</p>
+                                          <p className="text-[9px] font-medium text-amber-600/70  leading-none">Matrix synchronization required</p>
+                                       </div>
                                     </div>
-                                 ) : (
-                                    <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest border border-emerald-500/20 bg-emerald-500/5 px-3 py-1.5 rounded-xl">Clearance</span>
-                                 )}
-                                 <ChevronRight size={18} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
-                              </div>
-                           </button>
-                        ))}
+                                    <button
+                                      disabled={isSubmitting}
+                                      onClick={handleManualSync}
+                                      className="px-4 py-2 bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20"
+                                    >
+                                       {isSubmitting ? 'Syncing...' : 'Force Sync Matrix'}
+                                    </button>
+                                 </motion.div>
+                               )}
+                            </div>
+                         ))}
                         {searchQuery.length >= 2 && searchResults.length === 0 && (
                            <div className="text-center py-12">
                               <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Digital Registry Empty</p>
@@ -327,12 +375,12 @@ const FeePaymentModal: React.FC<FeePaymentModalProps> = ({ open, onClose }) => {
                                 className={clsx(
                                   "w-full p-4 rounded-2xl border-2 transition-all text-left group",
                                   selectedFee?.id === fee.id 
-                                    ? "border-indigo-600 bg-indigo-50/30 dark:bg-indigo-900/20" 
-                                    : "border-slate-50 dark:border-slate-900 bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-100"
+                                    ? "border-indigo-600 bg-indigo-50/30 " 
+                                    : "border-slate-50  bg-slate-50  hover:bg-slate-100"
                                 )}
                               >
                                  <div className="flex justify-between items-center mb-1">
-                                    <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">{fee.academicYear.label}</p>
+                                    <p className="text-xs font-black text-slate-900  uppercase tracking-tight">{fee.academicYear.label}</p>
                                     <span className={clsx(
                                        "text-[8px] font-black uppercase px-2 py-1 rounded-lg tracking-widest border",
                                        fee.status === 'PENDING' ? "bg-rose-50 text-rose-500 border-rose-100" : "bg-amber-50 text-amber-500 border-amber-100"
@@ -341,11 +389,15 @@ const FeePaymentModal: React.FC<FeePaymentModalProps> = ({ open, onClose }) => {
                                  <div className="flex justify-between items-end">
                                     <div>
                                        <p className="text-[10px] font-bold text-slate-400 uppercase">Balance Pending</p>
-                                       <p className="text-sm font-black text-slate-800 dark:text-slate-200 tracking-tight">₹{Number(fee.balance).toLocaleString()}</p>
+                                       <p className="text-sm font-black text-slate-800  tracking-tight">₹{Number(fee.balance).toLocaleString()}</p>
                                     </div>
+                                     <div className="flex-1 px-4 text-center">
+                                        <p className="text-[10px] font-bold text-emerald-500 uppercase">Collected</p>
+                                        <p className="text-sm font-black text-emerald-600 tracking-tight">₹{Number(fee.paidAmount).toLocaleString()}</p>
+                                     </div>
                                     <div className="text-right">
                                        <p className="text-[10px] font-bold text-slate-400 uppercase">Total Dues</p>
-                                       <p className="text-[10px] font-black text-slate-600 dark:text-slate-400">₹{Number(fee.totalAmount).toLocaleString()}</p>
+                                       <p className="text-[10px] font-black text-slate-600 ">₹{Number(fee.totalAmount).toLocaleString()}</p>
                                     </div>
                                  </div>
                               </button>
@@ -362,7 +414,7 @@ const FeePaymentModal: React.FC<FeePaymentModalProps> = ({ open, onClose }) => {
                                  <input 
                                    type="number"
                                    {...register('amount', { required: true, min: 1 })}
-                                   className="w-full pl-10 pr-4 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-black text-slate-900 dark:text-white outline-none"
+                                   className="w-full pl-10 pr-4 py-4 bg-slate-50  border-2 border-transparent focus:border-indigo-600 rounded-2xl font-black text-slate-900  outline-none"
                                  />
                                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
                               </div>
@@ -380,7 +432,7 @@ const FeePaymentModal: React.FC<FeePaymentModalProps> = ({ open, onClose }) => {
                                  ].map((mode) => (
                                     <label key={mode.id} className={clsx(
                                        "relative flex items-center gap-2 p-3 rounded-xl border-2 cursor-pointer transition-all",
-                                       paymentMode === mode.id ? "border-indigo-600 bg-indigo-50/50 text-indigo-700" : "border-slate-50 dark:border-slate-900 bg-slate-50 dark:bg-slate-900 text-slate-500"
+                                       paymentMode === mode.id ? "border-indigo-600 bg-indigo-50/50 text-indigo-700" : "border-slate-50  bg-slate-50  text-slate-500"
                                     )}>
                                        <input type="radio" value={mode.id} {...register('paymentMode')} className="hidden" />
                                        {mode.icon}
@@ -399,7 +451,7 @@ const FeePaymentModal: React.FC<FeePaymentModalProps> = ({ open, onClose }) => {
                                    type="text"
                                    {...register('referenceNo')}
                                    placeholder="UTP / Ref No / Cheque No"
-                                   className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-slate-900 dark:text-white outline-none"
+                                   className="w-full px-4 py-4 bg-slate-50  border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-slate-900  outline-none"
                                  />
                               </motion.div>
                            )}
@@ -411,7 +463,7 @@ const FeePaymentModal: React.FC<FeePaymentModalProps> = ({ open, onClose }) => {
                                  <input 
                                    type="date"
                                    {...register('transactionDate')}
-                                   className="w-full pl-10 pr-4 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-slate-900 dark:text-white outline-none"
+                                   className="w-full pl-10 pr-4 py-4 bg-slate-50  border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-slate-900  outline-none"
                                  />
                               </div>
                            </div>
@@ -450,29 +502,29 @@ const FeePaymentModal: React.FC<FeePaymentModalProps> = ({ open, onClose }) => {
                         </div>
                      </div>
 
-                     <div className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-700 rounded-[2.5rem] p-8 space-y-8 relative overflow-hidden">
+                     <div className="bg-white  border-2 border-slate-100  rounded-[2.5rem] p-8 space-y-8 relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl" />
                         
                         <div className="flex justify-between items-start">
                            <div>
-                              <h3 className="text-lg font-black text-slate-900 dark:text-white leading-none">Receipt Clearance</h3>
+                              <h3 className="text-lg font-black text-slate-900  leading-none">Receipt Clearance</h3>
                               <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-1">Official Document</p>
                            </div>
                            <div className="text-right">
                               <p className="text-[10px] font-black text-slate-400 uppercase">Receipt No</p>
-                              <p className="text-lg font-black text-slate-900 dark:text-white tracking-widest">{successData.transaction.receiptNo}</p>
+                              <p className="text-lg font-black text-slate-900  tracking-widest">{successData.transaction.receiptNo}</p>
                            </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-8 py-8 border-y-2 border-dashed border-slate-100 dark:border-slate-800">
+                        <div className="grid grid-cols-2 gap-8 py-8 border-y-2 border-dashed border-slate-100 ">
                            <div>
                               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Student Node</p>
-                              <p className="text-sm font-black uppercase text-slate-800 dark:text-white">{successData.student.name}</p>
+                              <p className="text-sm font-black uppercase text-slate-800 ">{successData.student.name}</p>
                               <p className="text-[10px] font-bold text-slate-500">{successData.student.enrollmentNo}</p>
                            </div>
                            <div className="text-right">
                               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Transaction Pulse</p>
-                              <p className="text-lg font-black text-slate-900 dark:text-white">₹{Number(successData.transaction.amount).toLocaleString()}</p>
+                              <p className="text-lg font-black text-slate-900 ">₹{Number(successData.transaction.amount).toLocaleString()}</p>
                               <p className="text-[10px] font-bold text-slate-500 italic">({converter.toWords(Number(successData.transaction.amount))} only)</p>
                            </div>
                         </div>
@@ -492,7 +544,7 @@ const FeePaymentModal: React.FC<FeePaymentModalProps> = ({ open, onClose }) => {
                      <div className="flex gap-4">
                         <button
                           onClick={handleDownload}
-                          className="flex-1 py-5 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-[1.5rem] font-black uppercase tracking-widest hover:border-indigo-600 hover:text-indigo-600 transition-all flex items-center justify-center gap-3 active:scale-95"
+                          className="flex-1 py-5 bg-white  border-2 border-slate-200  text-slate-600  rounded-[1.5rem] font-black uppercase tracking-widest hover:border-indigo-600 hover:text-indigo-600 transition-all flex items-center justify-center gap-3 active:scale-95"
                         >
                            <Download size={20} />
                            Generate PDF

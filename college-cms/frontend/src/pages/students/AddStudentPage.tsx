@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { studentService } from '../../services/studentService';
+import { settingsService } from '../../services/settingsService';
 import { clsx } from 'clsx';
 import { usePageTitle } from '../../hooks/usePageTitle';
 
@@ -35,9 +36,12 @@ const studentFormSchema = z.object({
   pinCode: z.string().length(6, "Pin Code must be 6 digits"),
   courseId: z.string().min(1, "Course is required"),
   academicYearId: z.string().min(1, "Academic Year is required"),
-  yearOfStudy: z.number().min(1).max(4),
+  yearOfStudy: z.number().int().min(1).max(4),
   batchYear: z.number().int().min(2000).max(new Date().getFullYear()),
-  aadharNo: z.string().length(12, "Aadhar must be 12 digits").optional().or(z.literal('')),
+  aadharNo: z.string().default(''),
+  discount: z.number().int().min(0),
+  discountType: z.enum(['FLAT', 'PERCENT']),
+  discountReason: z.string().default('')
 });
 
 type StudentFormValues = z.infer<typeof studentFormSchema>;
@@ -53,8 +57,8 @@ const FormField = React.forwardRef<HTMLInputElement, any>(
           ref={ref}
           onChange={onChange}
           className={clsx(
-            "w-full pt-2 pb-2 bg-transparent text-sm font-bold outline-none border-[1.5px] border-transparent border-b-slate-200 dark:border-b-slate-700/50 transition-all rounded-none appearance-none px-0",
-            error ? "!border-b-rose-500 transition-none" : "focus:!border-b-indigo-600 focus:text-indigo-900 dark:focus:text-indigo-100 placeholder:text-slate-200 dark:placeholder:text-slate-700"
+            "w-full pt-2 pb-2 bg-transparent text-sm font-bold outline-none border-[1.5px] border-transparent border-b-slate-200  transition-all rounded-none appearance-none px-0",
+            error ? "!border-b-rose-500 transition-none" : "focus:!border-b-indigo-600 focus:text-indigo-900  placeholder:text-slate-200 "
           )}
           {...props}
         />
@@ -86,12 +90,28 @@ const AddStudentPage = () => {
     formState: { errors, isDirty },
     setError
   } = useForm<StudentFormValues>({
-    resolver: zodResolver(studentFormSchema),
+    resolver: zodResolver(studentFormSchema) as any,
     defaultValues: {
+      name: '',
+      fatherName: '',
+      motherName: '',
+      phone: '',
+      alternatePhone: '',
+      email: '',
+      dob: '',
       gender: 'MALE',
+      address: '',
+      city: '',
+      state: 'Uttar Pradesh',
+      pinCode: '',
+      courseId: '',
+      academicYearId: '',
       yearOfStudy: 1,
       batchYear: new Date().getFullYear(),
-      state: 'Uttar Pradesh'
+      aadharNo: '',
+      discount: 0,
+      discountType: 'FLAT',
+      discountReason: ''
     }
   });
 
@@ -116,6 +136,18 @@ const AddStudentPage = () => {
       }
     }
   }, [academicYears, setValue]);
+
+  const { data: feeCheck } = useQuery({
+     queryKey: ['fee-check', watch('courseId'), watch('academicYearId'), watch('yearOfStudy')],
+     queryFn: () => settingsService.getFeeStructures({
+       courseId: watch('courseId'),
+       academicYearId: watch('academicYearId'),
+       yearOfStudy: watch('yearOfStudy')
+     }),
+     enabled: !!(watch('courseId') && watch('academicYearId') && watch('yearOfStudy'))
+  });
+
+  const hasFeeStructure = feeCheck && feeCheck.data && feeCheck.data.length > 0;
 
   const handleClose = () => {
     if (isDirty) {
@@ -166,19 +198,19 @@ const AddStudentPage = () => {
   };
 
   return (
-    <div className="fixed inset-0 w-full h-full bg-white dark:bg-slate-950 z-[100] flex flex-col overflow-hidden font-sans">
+    <div className="fixed inset-0 w-full h-full bg-white  z-[100] flex flex-col overflow-hidden font-sans">
       
       {/* HEADER */}
-      <div className="fixed top-0 w-full h-[90px] bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 z-50 flex items-center justify-between px-6 md:px-12">
+      <div className="fixed top-0 w-full h-[90px] bg-white  border-b border-slate-200  z-50 flex items-center justify-between px-6 md:px-12">
         <div className="flex flex-col">
-          <h1 className="text-[24px] font-black text-slate-900 dark:text-white uppercase leading-tight tracking-tight">Add New Student</h1>
+          <h1 className="text-[24px] font-black text-slate-900  uppercase leading-tight tracking-tight">Add New Student</h1>
           <p className="text-[12px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Enrollment Intelligence Matrix</p>
         </div>
         <button 
           onClick={handleClose}
-          className="p-3 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 rounded-full transition-all active:scale-95"
+          className="p-3 bg-slate-50 hover:bg-slate-100   rounded-full transition-all active:scale-95"
         >
-          <X size={24} className="text-slate-400 dark:text-slate-500" />
+          <X size={24} className="text-slate-400 " />
         </button>
       </div>
 
@@ -190,8 +222,8 @@ const AddStudentPage = () => {
             {/* SECTION 01 */}
             <section className="space-y-10">
               <div className="flex items-center gap-3">
-                <span className="px-2.5 py-1 rounded bg-indigo-100/50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 font-black text-[10px] tracking-widest">01</span>
-                <h3 className="font-bold text-indigo-900 dark:text-indigo-400 uppercase text-[11px] tracking-[0.15em]">Personal Identification</h3>
+                <span className="px-2.5 py-1 rounded bg-indigo-100/50  text-indigo-700  font-black text-[10px] tracking-widest">01</span>
+                <h3 className="font-bold text-indigo-900  uppercase text-[11px] tracking-[0.15em]">Personal Identification</h3>
               </div>
               <div className="space-y-8">
                 <FormField label="Full Name" required error={errors.name?.message} {...register('name')} placeholder="First Last" />
@@ -199,7 +231,7 @@ const AddStudentPage = () => {
                 <FormField label="Mother's Name" error={errors.motherName?.message} {...register('motherName')} placeholder="Mother's Name" />
                 <FormField label="Date of Birth" required type="date" error={errors.dob?.message} {...register('dob')} />
                 
-                <div className="space-y-3 pb-2 border-b-[1.5px] border-slate-200 dark:border-slate-700/50">
+                <div className="space-y-3 pb-2 border-b-[1.5px] border-slate-200 ">
                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em] block">
                      Gender *
                    </label>
@@ -210,9 +242,9 @@ const AddStudentPage = () => {
                              type="radio" 
                              value={g} 
                              {...register('gender')} 
-                             className="w-[14px] h-[14px] text-indigo-600 border-slate-300 focus:ring-indigo-600 dark:bg-slate-900 dark:border-slate-700" 
+                             className="w-[14px] h-[14px] text-indigo-600 border-slate-300 focus:ring-indigo-600  " 
                            />
-                           <span className="text-[12px] font-bold text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{g}</span>
+                           <span className="text-[12px] font-bold text-slate-700  group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{g}</span>
                         </label>
                       ))}
                    </div>
@@ -232,8 +264,8 @@ const AddStudentPage = () => {
             {/* SECTION 02 */}
             <section className="space-y-10">
               <div className="flex items-center gap-3">
-                <span className="px-2.5 py-1 rounded bg-teal-100/50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 font-black text-[10px] tracking-widest">02</span>
-                <h3 className="font-bold text-teal-900 dark:text-teal-400 uppercase text-[11px] tracking-[0.15em]">Contact & Logistics</h3>
+                <span className="px-2.5 py-1 rounded bg-teal-100/50  text-teal-700  font-black text-[10px] tracking-widest">02</span>
+                <h3 className="font-bold text-teal-900  uppercase text-[11px] tracking-[0.15em]">Contact & Logistics</h3>
               </div>
               <div className="space-y-8">
                 <FormField label="Phone Number" required maxLength={10} error={errors.phone?.message} {...register('phone')} placeholder="9999999999" />
@@ -247,8 +279,8 @@ const AddStudentPage = () => {
                   <textarea 
                     rows={3}
                     className={clsx(
-                      "w-full pt-3 pb-2 bg-transparent text-sm font-bold outline-none border-[1.5px] border-transparent border-b-slate-200 dark:border-b-slate-700/50 transition-all rounded-none appearance-none px-0 resize-none",
-                      errors.address ? "!border-b-rose-500 transition-none" : "focus:!border-b-indigo-600 focus:text-indigo-900 dark:focus:text-indigo-100 placeholder:text-slate-200 dark:placeholder:text-slate-700"
+                      "w-full pt-3 pb-2 bg-transparent text-sm font-bold outline-none border-[1.5px] border-transparent border-b-slate-200  transition-all rounded-none appearance-none px-0 resize-none",
+                      errors.address ? "!border-b-rose-500 transition-none" : "focus:!border-b-indigo-600 focus:text-indigo-900  placeholder:text-slate-200 "
                     )}
                     placeholder="Street Address..."
                     {...register('address')}
@@ -269,8 +301,8 @@ const AddStudentPage = () => {
                   </label>
                   <select 
                     className={clsx(
-                      "w-full pt-3 pb-2 bg-transparent text-sm font-bold outline-none border-[1.5px] border-transparent border-b-slate-200 dark:border-b-slate-700/50 transition-all rounded-none cursor-pointer px-0",
-                      errors.state ? "!border-b-rose-500" : "focus:!border-b-indigo-600 focus:text-indigo-900 dark:focus:text-indigo-100"
+                      "w-full pt-3 pb-2 bg-transparent text-sm font-bold outline-none border-[1.5px] border-transparent border-b-slate-200  transition-all rounded-none cursor-pointer px-0",
+                      errors.state ? "!border-b-rose-500" : "focus:!border-b-indigo-600 focus:text-indigo-900 "
                     )}
                     {...register('state')}
                   >
@@ -285,8 +317,8 @@ const AddStudentPage = () => {
             {/* SECTION 03 */}
             <section className="space-y-10">
               <div className="flex items-center gap-3">
-                <span className="px-2.5 py-1 rounded bg-amber-100/50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-black text-[10px] tracking-widest">03</span>
-                <h3 className="font-bold text-amber-900 dark:text-amber-400 uppercase text-[11px] tracking-[0.15em]">Academic Credentials</h3>
+                <span className="px-2.5 py-1 rounded bg-amber-100/50  text-amber-700  font-black text-[10px] tracking-widest">03</span>
+                <h3 className="font-bold text-amber-900  uppercase text-[11px] tracking-[0.15em]">Academic Credentials</h3>
               </div>
               <div className="space-y-8">
                 
@@ -296,8 +328,8 @@ const AddStudentPage = () => {
                   </label>
                   <select 
                     className={clsx(
-                      "w-full pt-3 pb-2 bg-transparent text-sm font-bold outline-none border-[1.5px] border-transparent border-b-slate-200 dark:border-b-slate-700/50 transition-all rounded-none cursor-pointer px-0",
-                      errors.courseId ? "!border-b-rose-500" : "focus:!border-b-indigo-600 focus:text-indigo-900 dark:focus:text-indigo-100"
+                      "w-full pt-3 pb-2 bg-transparent text-sm font-bold outline-none border-[1.5px] border-transparent border-b-slate-200  transition-all rounded-none cursor-pointer px-0",
+                      errors.courseId ? "!border-b-rose-500" : "focus:!border-b-indigo-600 focus:text-indigo-900 "
                     )}
                     {...register('courseId')}
                   >
@@ -320,8 +352,8 @@ const AddStudentPage = () => {
                   </label>
                   <select 
                     className={clsx(
-                      "w-full pt-3 pb-2 bg-transparent text-sm font-bold outline-none border-[1.5px] border-transparent border-b-slate-200 dark:border-b-slate-700/50 transition-all rounded-none cursor-pointer px-0",
-                      errors.academicYearId ? "!border-b-rose-500" : "focus:!border-b-indigo-600 focus:text-indigo-900 dark:focus:text-indigo-100"
+                      "w-full pt-3 pb-2 bg-transparent text-sm font-bold outline-none border-[1.5px] border-transparent border-b-slate-200  transition-all rounded-none cursor-pointer px-0",
+                      errors.academicYearId ? "!border-b-rose-500" : "focus:!border-b-indigo-600 focus:text-indigo-900 "
                     )}
                     {...register('academicYearId')}
                   >
@@ -338,8 +370,8 @@ const AddStudentPage = () => {
                   </label>
                   <select 
                     className={clsx(
-                      "w-full pt-3 pb-2 bg-transparent text-sm font-bold outline-none border-[1.5px] border-transparent border-b-slate-200 dark:border-b-slate-700/50 transition-all rounded-none cursor-pointer px-0",
-                      errors.yearOfStudy ? "!border-b-rose-500" : "focus:!border-b-indigo-600 focus:text-indigo-900 dark:focus:text-indigo-100"
+                      "w-full pt-3 pb-2 bg-transparent text-sm font-bold outline-none border-[1.5px] border-transparent border-b-slate-200  transition-all rounded-none cursor-pointer px-0",
+                      errors.yearOfStudy ? "!border-b-rose-500" : "focus:!border-b-indigo-600 focus:text-indigo-900 "
                     )}
                     {...register('yearOfStudy', { valueAsNumber: true })}
                   >
@@ -354,7 +386,98 @@ const AddStudentPage = () => {
                 </div>
 
                 <FormField label="Batch Year" required type="number" error={errors.batchYear?.message} {...register('batchYear', { valueAsNumber: true })} placeholder="YYYY" />
-                
+
+                {watch('courseId') && watch('academicYearId') && (
+                  <div className={clsx(
+                    "p-5 rounded-3xl border-2 transition-all space-y-4 mb-4",
+                    hasFeeStructure ? "bg-emerald-50/30 border-emerald-100/50" : "bg-rose-50/30 border-rose-100/50"
+                  )}>
+                     <div className="flex items-center gap-3">
+                        <div className={clsx(
+                          "w-10 h-10 rounded-2xl flex items-center justify-center text-white",
+                          hasFeeStructure ? "bg-emerald-500 shadow-lg shadow-emerald-500/20" : "bg-rose-500 shadow-lg shadow-rose-500/20"
+                        )}>
+                           <AlertCircle size={20} />
+                        </div>
+                        <div>
+                           <p className="text-[11px] font-black uppercase tracking-tight leading-none text-slate-900 ">Fee Matrix Status</p>
+                           <p className={clsx(
+                             "text-[10px] font-bold uppercase mt-1",
+                             hasFeeStructure ? "text-emerald-600" : "text-rose-600"
+                           )}>
+                              {hasFeeStructure ? "Auto-Ledger Ready" : "No Master Structure Result"}
+                           </p>
+                        </div>
+                     </div>
+                     <p className="text-[10px] font-medium text-slate-500 leading-normal">
+                        {hasFeeStructure 
+                          ? `A fiscal ledger of ₹${Number(feeCheck?.data?.[0]?.totalAmount).toLocaleString()} will be automatically generated upon commitment.`
+                          : "No fee matrix exists for this configuration. You will need to manually sync the ledger after enrollment once a structure is created."}
+                     </p>
+                  </div>
+                )}
+              </div>
+            </section>
+            
+            {/* SECTION 04 */}
+            <section className="space-y-10">
+              <div className="flex items-center gap-3">
+                <span className="px-2.5 py-1 rounded bg-rose-100/50  text-rose-700  font-black text-[10px] tracking-widest">04</span>
+                <h3 className="font-bold text-rose-900  uppercase text-[11px] tracking-[0.15em]">Institutional Waivers</h3>
+              </div>
+              <div className="space-y-8">
+                 <div className="grid grid-cols-2 gap-6">
+                    <FormField 
+                       label="Waiver Value" 
+                       type="number" 
+                       error={errors.discount?.message} 
+                       {...register('discount', { valueAsNumber: true })} 
+                       placeholder="0"
+                    />
+                    <div className="space-y-1 relative">
+                       <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em] block">Waiver Type</label>
+                       <select 
+                          className="w-full pt-3 pb-2 bg-transparent text-sm font-bold outline-none border-[1.5px] border-transparent border-b-slate-200  transition-all rounded-none cursor-pointer px-0"
+                          {...register('discountType')}
+                       >
+                          <option value="FLAT">FLAT (₹)</option>
+                          <option value="PERCENT">PERCENT (%)</option>
+                       </select>
+                    </div>
+                 </div>
+                 <FormField 
+                    label="Reason for Waiver" 
+                    error={errors.discountReason?.message} 
+                    {...register('discountReason')} 
+                    placeholder="e.g., Merit Scholarship, Staff Ward, etc." 
+                 />
+                 
+                 <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 space-y-4">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Final Ledger Projection</p>
+                    <div className="flex justify-between items-end">
+                       <div>
+                          <p className="text-xs font-bold text-slate-500 uppercase">Payable Amount</p>
+                          <p className="text-2xl font-black text-indigo-600">
+                             ₹{(() => {
+                                const total = Number(feeCheck?.data?.[0]?.totalAmount || 0);
+                                const disc = watch('discount') || 0;
+                                const type = watch('discountType');
+                                if (type === 'PERCENT') {
+                                   const amt = (total - (total * disc / 100));
+                                   return isNaN(amt) ? total.toLocaleString() : amt.toLocaleString();
+                                }
+                                const amt = total - disc;
+                                return isNaN(amt) ? total.toLocaleString() : amt.toLocaleString();
+                             })()}
+                          </p>
+                       </div>
+                       <div className="text-right">
+                          <div className="text-[10px] font-bold text-rose-500 uppercase px-2 py-1 bg-rose-50 rounded-lg inline-block">
+                             -{watch('discountType') === 'PERCENT' ? `${watch('discount') || 0}%` : `₹${watch('discount') || 0}`} Waiver
+                          </div>
+                       </div>
+                    </div>
+                 </div>
               </div>
             </section>
 
@@ -363,12 +486,12 @@ const AddStudentPage = () => {
       </div>
 
       {/* FOOTER */}
-      <div className="fixed bottom-0 w-full h-[80px] bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 z-50 flex items-center px-6 md:px-12">
+      <div className="fixed bottom-0 w-full h-[80px] bg-white  border-t border-slate-200  z-50 flex items-center px-6 md:px-12">
         <div className="w-full flex gap-4">
           <button 
             type="button"
             onClick={handleClose}
-            className="flex-1 py-4 border-[1.5px] border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded font-bold text-xs uppercase tracking-[0.1em] hover:bg-slate-50 dark:hover:bg-slate-900 transition-all"
+            className="flex-1 py-4 border-[1.5px] border-slate-300  text-slate-700  rounded font-bold text-xs uppercase tracking-[0.1em] hover:bg-slate-50  transition-all"
           >
             Cancel Action
           </button>

@@ -143,14 +143,14 @@ const RecordExpenseModal: React.FC<RecordExpenseModalProps> = ({ open, onClose, 
             initial={{ scale: 0.95, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-3xl text-slate-900 dark:text-white"
+            className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar bg-white  rounded-[2.5rem] shadow-3xl text-slate-900 "
           >
-            <div className="sticky top-0 z-10 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl p-8 border-b dark:border-slate-700 flex justify-between items-center">
+            <div className="sticky top-0 z-10 bg-white/80  backdrop-blur-xl p-8 border-b  flex justify-between items-center">
                <div>
                   <h2 className="text-2xl font-black uppercase tracking-tight">{prefill ? 'Update Expense' : 'Record Expense'}</h2>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Disbursement Terminal</p>
                </div>
-               <button onClick={handleClose} className="p-3 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-2xl transition-all">
+               <button onClick={handleClose} className="p-3 hover:bg-slate-100  rounded-2xl transition-all">
                  <X size={24} className="text-slate-400" />
                </button>
             </div>
@@ -161,7 +161,7 @@ const RecordExpenseModal: React.FC<RecordExpenseModalProps> = ({ open, onClose, 
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Expense Category *</label>
                   <select 
                     {...register('expenseCategoryId')}
-                    className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-black uppercase text-sm outline-none transition-all"
+                    className="w-full px-4 py-4 bg-slate-50  border-2 border-transparent focus:border-indigo-600 rounded-2xl font-black uppercase text-sm outline-none transition-all"
                   >
                      <option value="" disabled>Select Category</option>
                      {categories.map((c: any) => (
@@ -175,11 +175,11 @@ const RecordExpenseModal: React.FC<RecordExpenseModalProps> = ({ open, onClose, 
                         <PlusCircle size={14} /> Add New Category
                      </button>
                   ) : (
-                     <div className="p-4 bg-indigo-50/50 dark:bg-indigo-900/20 border-2 border-indigo-100 dark:border-indigo-900 rounded-2xl space-y-3">
+                     <div className="p-4 bg-indigo-50/50  border-2 border-indigo-100  rounded-2xl space-y-3">
                         <input 
                            type="text" 
                            placeholder="Category Name" 
-                           className="w-full px-4 py-3 bg-white dark:bg-slate-800 rounded-xl text-sm font-bold outline-none border focus:border-indigo-600"
+                           className="w-full px-4 py-3 bg-white  rounded-xl text-sm font-bold outline-none border focus:border-indigo-600"
                            value={newCatName}
                            onChange={e => setNewCatName(e.target.value)}
                         />
@@ -201,7 +201,7 @@ const RecordExpenseModal: React.FC<RecordExpenseModalProps> = ({ open, onClose, 
                            type="number" step="0.01" 
                            disabled={!!prefill} // Cannot update amount after creation
                            {...register('amount', { valueAsNumber: true })}
-                           className={clsx("w-full pl-10 pr-4 py-4 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-black outline-none transition-all", !!prefill ? "bg-slate-100 dark:bg-slate-800 text-slate-400" : "bg-slate-50 dark:bg-slate-900")}
+                           className={clsx("w-full pl-10 pr-4 py-4 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-black outline-none transition-all", !!prefill ? "bg-slate-100  text-slate-400" : "bg-slate-50 ")}
                         />
                      </div>
                      {errors.amount && <p className="text-xs text-rose-500 font-bold ml-1 mt-1">{errors.amount.message}</p>}
@@ -210,7 +210,7 @@ const RecordExpenseModal: React.FC<RecordExpenseModalProps> = ({ open, onClose, 
                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1 mb-2">Payment Mode *</label>
                      <select 
                        {...register('paymentMode')}
-                       className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-black text-sm outline-none transition-all uppercase"
+                       className="w-full px-4 py-4 bg-slate-50  border-2 border-transparent focus:border-indigo-600 rounded-2xl font-black text-sm outline-none transition-all uppercase"
                      >
                         <option value="CASH">CASH</option>
                         <option value="UPI">UPI</option>
@@ -231,7 +231,7 @@ const RecordExpenseModal: React.FC<RecordExpenseModalProps> = ({ open, onClose, 
                         type="text"
                         {...register('referenceNo')}
                         placeholder="UTP / Cheque No"
-                        className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-sm outline-none transition-all placeholder:font-normal"
+                        className="w-full px-4 py-4 bg-slate-50  border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-sm outline-none transition-all placeholder:font-normal"
                      />
                      {errors.referenceNo && <p className="text-xs text-rose-500 font-bold ml-1 mt-1">{errors.referenceNo.message}</p>}
                   </div>
@@ -241,7 +241,7 @@ const RecordExpenseModal: React.FC<RecordExpenseModalProps> = ({ open, onClose, 
                         type="text"
                         {...register('invoiceNo')}
                         placeholder="Optional"
-                        className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-sm outline-none transition-all placeholder:font-normal"
+                        className="w-full px-4 py-4 bg-slate-50  border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-sm outline-none transition-all placeholder:font-normal"
                      />
                      {errors.invoiceNo && <p className="text-xs text-rose-500 font-bold ml-1 mt-1">{errors.invoiceNo.message}</p>}
                   </div>
@@ -254,7 +254,7 @@ const RecordExpenseModal: React.FC<RecordExpenseModalProps> = ({ open, onClose, 
                      rows={3}
                      {...register('description')}
                      placeholder="Describe the expense in detail"
-                     className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-sm outline-none transition-all placeholder:font-normal resize-none"
+                     className="w-full px-4 py-4 bg-slate-50  border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-sm outline-none transition-all placeholder:font-normal resize-none"
                   />
                   {errors.description && <p className="text-xs text-rose-500 font-bold ml-1 mt-1">{errors.description.message}</p>}
                </div>
@@ -268,7 +268,7 @@ const RecordExpenseModal: React.FC<RecordExpenseModalProps> = ({ open, onClose, 
                         disabled={!!prefill} // Cannot update date
                         {...register('transactionDate')}
                         max={new Date().toISOString().split('T')[0]}
-                        className={clsx("w-full px-4 py-4 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-black text-sm outline-none transition-all", !!prefill ? "bg-slate-100 dark:bg-slate-800 text-slate-400" : "bg-slate-50 dark:bg-slate-900")}
+                        className={clsx("w-full px-4 py-4 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-black text-sm outline-none transition-all", !!prefill ? "bg-slate-100  text-slate-400" : "bg-slate-50 ")}
                      />
                      {errors.transactionDate && <p className="text-xs text-rose-500 font-bold ml-1 mt-1">{errors.transactionDate.message}</p>}
                   </div>
@@ -278,13 +278,13 @@ const RecordExpenseModal: React.FC<RecordExpenseModalProps> = ({ open, onClose, 
                         type="text"
                         {...register('remarks')}
                         placeholder="Optional"
-                        className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-sm outline-none transition-all placeholder:font-normal"
+                        className="w-full px-4 py-4 bg-slate-50  border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-sm outline-none transition-all placeholder:font-normal"
                      />
                   </div>
                </div>
 
                <div className="flex gap-4 pt-4">
-                  <button type="button" onClick={handleClose} className="flex-1 py-5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-[1.5rem] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-600 transition-all">Cancel</button>
+                  <button type="button" onClick={handleClose} className="flex-1 py-5 bg-slate-100  text-slate-600  rounded-[1.5rem] font-black uppercase tracking-widest hover:bg-slate-200  transition-all">Cancel</button>
                   <button 
                      type="submit" 
                      disabled={isSubmitting}

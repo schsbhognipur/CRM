@@ -5,7 +5,8 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+// Safely initialize client only if URL is present to avoid top-level crash
+const supabaseClient = supabaseUrl ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 export const useRealtimeDashboard = () => {
   const queryClient = useQueryClient();
@@ -30,7 +31,9 @@ export const useRealtimeDashboard = () => {
         .subscribe();
 
       return () => {
-        supabaseClient.removeChannel(channel);
+        if (supabaseClient) {
+          supabaseClient.removeChannel(channel);
+        }
       };
     } catch (error) {
       console.error('❌ Realtime Dashboard: Subscription failed.', error);

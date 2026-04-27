@@ -19,10 +19,10 @@ export const PageLoader = () => (
 export const TableSkeleton = ({ rows = 10, columns = 6 }: { rows?: number, columns?: number }) => (
    <div className="w-full animate-pulse">
       {Array.from({ length: rows }).map((_, r) => (
-         <div key={r} className="flex border-b border-slate-100 dark:border-slate-800 p-4">
+         <div key={r} className="flex border-b border-slate-100  p-4">
             {Array.from({ length: columns }).map((_, c) => (
                <div key={c} className="flex-1 px-4">
-                  <div className={`h-4 bg-slate-200 dark:bg-slate-700/50 rounded-full w-${Math.floor(Math.random() * (11 - 6) + 6)}/12`}></div>
+                  <div className={`h-4 bg-slate-200  rounded-full w-${Math.floor(Math.random() * (11 - 6) + 6)}/12`}></div>
                </div>
             ))}
          </div>
@@ -32,12 +32,12 @@ export const TableSkeleton = ({ rows = 10, columns = 6 }: { rows?: number, colum
 
 export const ErrorBoundaryFallback = ({ error, resetErrorBoundary }: any) => {
    return (
-      <div className="flex flex-col items-center justify-center h-screen bg-slate-50 dark:bg-slate-900">
-         <div className="bg-white dark:bg-slate-800 p-8 rounded-[2rem] shadow-2xl max-w-lg text-center border dark:border-slate-700">
+      <div className="flex flex-col items-center justify-center h-screen bg-slate-50 ">
+         <div className="bg-white  p-8 rounded-[2rem] shadow-2xl max-w-lg text-center border ">
             <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
                <Loader2 size={32} className="animate-pulse" />
             </div>
-            <h1 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight mb-2">Something went wrong</h1>
+            <h1 className="text-2xl font-black text-slate-900  uppercase tracking-tight mb-2">Something went wrong</h1>
             <p className="text-sm font-bold text-slate-500 mb-8 px-4 leading-relaxed tracking-wide">
                {error?.message || "A fatal rendering inconsistency occurred within the matrix."}
             </p>

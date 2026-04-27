@@ -175,6 +175,75 @@ export const copyFeeStructure = async (req: Request, res: Response) => {
   }
 };
 
+export const bulkUpdateFeeStructures = async (req: Request, res: Response) => {
+   const { updates, academicYearId } = req.body;
+   
+   if (!Array.isArray(updates) || !academicYearId) {
+      return res.status(400).json({ success: false, message: 'Invalid bulk payload' });
+   }
+
+   try {
+      await prisma.$transaction(async (tx) => {
+         for (const update of updates) {
+            const { courseId, yearOfStudy, components } = update;
+            
+            // 1. Find or Create Structure
+            let structure = await tx.feeStructure.findUnique({
+               where: { courseId_academicYearId_yearOfStudy: { courseId, academicYearId, yearOfStudy } }
+            });
+
+            if (!structure) {
+               if (components.length === 0) continue;
+               
+               const totalAmount = components.reduce((acc: number, curr: any) => acc + curr.amount, 0);
+               structure = await tx.feeStructure.create({
+                  data: {
+                     courseId,
+                     academicYearId,
+                     yearOfStudy,
+                     totalAmount,
+                     components: {
+                        create: components.map((c: any) => ({ feeComponentId: c.feeComponentId, amount: c.amount }))
+                     }
+                  }
+               });
+            } else {
+               // 2. Update existing structure
+               const validComponents = components.filter((c: any) => c.amount > 0);
+               const totalAmount = validComponents.reduce((acc: number, curr: any) => acc + curr.amount, 0);
+
+               // Clear old components
+               await tx.feeStructureComponent.deleteMany({ where: { feeStructureId: structure.id } });
+               
+               // Update structure and insert new components
+               await tx.feeStructure.update({
+                  where: { id: structure.id },
+                  data: {
+                     totalAmount,
+                     components: {
+                        create: validComponents.map((c: any) => ({ feeComponentId: c.feeComponentId, amount: c.amount }))
+                     }
+                  }
+               });
+
+               // 3. Update PENDING Student Fees mapped to this structure
+               await tx.studentFee.updateMany({
+                  where: { feeStructureId: structure.id, status: 'PENDING' },
+                  data: { totalAmount, balance: totalAmount }
+               });
+            }
+         }
+      }, {
+         timeout: 20000 // 20 seconds for bulk operations
+      });
+
+      res.json({ success: true, message: 'Omni-Matrix synchronized' });
+   } catch (error: any) {
+      console.error('[bulkUpdateFeeStructures]', error);
+      res.status(500).json({ success: false, message: error.message || 'Bulk sync failed' });
+   }
+};
+
 export const deleteFeeStructure = async (req: Request, res: Response) => {
    const { id } = req.params;
    try {

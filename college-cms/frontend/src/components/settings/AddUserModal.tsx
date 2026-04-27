@@ -111,9 +111,9 @@ const AddUserModal: React.FC<AddUserModalProps> = ({ open, onClose }) => {
             initial={{ scale: 0.95, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            className="relative w-full max-w-lg bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-3xl overflow-hidden text-slate-900 dark:text-white"
+            className="relative w-full max-w-lg bg-white  rounded-[2.5rem] shadow-3xl overflow-hidden text-slate-900 "
           >
-            <div className="p-8 border-b dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/30">
+            <div className="p-8 border-b  flex justify-between items-center bg-slate-50 ">
                <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-600/30">
                      <ShieldCheck size={24} />
@@ -123,7 +123,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({ open, onClose }) => {
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Admin Security Control</p>
                   </div>
                </div>
-               <button onClick={handleClose} className="p-3 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-2xl transition-all">
+               <button onClick={handleClose} className="p-3 hover:bg-slate-200  rounded-2xl transition-all">
                  <X size={24} className="text-slate-400" />
                </button>
             </div>
@@ -136,7 +136,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({ open, onClose }) => {
                         {...register('name')}
                         type="text" 
                         placeholder="John Doe"
-                        className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-sm outline-none transition-all placeholder:font-normal"
+                        className="w-full px-4 py-4 bg-slate-50  border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-sm outline-none transition-all placeholder:font-normal"
                      />
                      {errors.name && <p className="text-xs text-rose-500 font-bold ml-1 mt-1">{errors.name.message}</p>}
                   </div>
@@ -147,7 +147,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({ open, onClose }) => {
                         {...register('email')}
                         type="email" 
                         placeholder="john@schs.edu"
-                        className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-sm outline-none transition-all placeholder:font-normal"
+                        className="w-full px-4 py-4 bg-slate-50  border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-sm outline-none transition-all placeholder:font-normal"
                      />
                      {errors.email && <p className="text-xs text-rose-500 font-bold ml-1 mt-1">{errors.email.message}</p>}
                   </div>
@@ -160,7 +160,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({ open, onClose }) => {
                               {...register('password')}
                               type={showPwd ? "text" : "password"} 
                               placeholder="Min 8 chars, 1 num, 1 sym"
-                              className="w-full pl-4 pr-12 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-sm outline-none transition-all placeholder:font-normal"
+                              className="w-full pl-4 pr-12 py-4 bg-slate-50  border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-sm outline-none transition-all placeholder:font-normal"
                            />
                            <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors">
                               {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -171,7 +171,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({ open, onClose }) => {
                         <div className="mt-2 flex items-center justify-between ml-1">
                            <div className="flex gap-1 w-1/2">
                               {[1, 2, 3, 4].map((i) => (
-                                 <div key={i} className={clsx("h-1 flex-1 rounded-full", i <= strength.score ? strength.color : "bg-slate-100 dark:bg-slate-800")} />
+                                 <div key={i} className={clsx("h-1 flex-1 rounded-full", i <= strength.score ? strength.color : "bg-slate-100 ")} />
                               ))}
                            </div>
                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{strength.label}</span>
@@ -184,7 +184,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({ open, onClose }) => {
                            {...register('confirmPassword')}
                            type={showPwd ? "text" : "password"}
                            placeholder="Confirm Password"
-                           className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-sm outline-none transition-all placeholder:font-normal"
+                           className="w-full px-4 py-4 bg-slate-50  border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-sm outline-none transition-all placeholder:font-normal"
                         />
                         {errors.confirmPassword && <p className="text-xs text-rose-500 font-bold ml-1 mt-1">{errors.confirmPassword.message}</p>}
                      </div>
@@ -194,7 +194,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({ open, onClose }) => {
                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Assignment Matrix (Role) *</label>
                      <select 
                         {...register('role')}
-                        className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-black text-sm outline-none transition-all uppercase"
+                        className="w-full px-4 py-4 bg-slate-50  border-2 border-transparent focus:border-indigo-600 rounded-2xl font-black text-sm outline-none transition-all uppercase"
                      >
                         {availableRoles.map(r => (
                            <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>
@@ -204,7 +204,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({ open, onClose }) => {
                </div>
 
                <div className="flex gap-4 pt-4">
-                  <button type="button" onClick={handleClose} className="flex-1 py-5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-[1.5rem] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-600 transition-all">Cancel</button>
+                  <button type="button" onClick={handleClose} className="flex-1 py-5 bg-slate-100  text-slate-600  rounded-[1.5rem] font-black uppercase tracking-widest hover:bg-slate-200  transition-all">Cancel</button>
                   <button 
                      type="submit" 
                      disabled={isSubmitting}

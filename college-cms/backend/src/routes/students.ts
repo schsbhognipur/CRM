@@ -8,7 +8,8 @@ import {
   deleteStudent,
   uploadPhoto,
   exportStudents,
-  uploadImportStudents,
+  importStudents,
+  importStudentFees,
   searchStudents,
   syncStudentFee
 } from '../controllers/studentController';
@@ -27,10 +28,9 @@ router.get('/:id', getStudent);
 
 router.post('/', authorize('SUPER_ADMIN', 'ADMIN'), createStudent);
 router.post('/:id/sync-fee', authorize('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'), syncStudentFee);
+router.post('/import', authorize('SUPER_ADMIN', 'ADMIN'), upload.single('file'), importStudents);
+router.post('/import-fees', authorize('SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'), upload.single('file'), importStudentFees);
 router.put('/:id', authorize('SUPER_ADMIN', 'ADMIN', 'STAFF'), updateStudent);
 router.delete('/:id', authorize('SUPER_ADMIN', 'ADMIN'), deleteStudent);
-
-router.post('/:id/photo', upload.single('photo'), uploadPhoto);
-router.post('/import', authorize('SUPER_ADMIN', 'ADMIN'), upload.single('file'), uploadImportStudents);
 
 export default router;

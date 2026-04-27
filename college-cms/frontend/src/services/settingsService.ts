@@ -56,6 +56,10 @@ export const settingsService = {
     const res = await api.put(`/fee-structures/${id}`, data);
     return res.data;
   },
+  bulkUpdateFeeStructures: async (data: any) => {
+    const res = await api.post('/fee-structures/bulk', data);
+    return res.data;
+  },
   copyFeeStructure: async (id: string, targetAcademicYearId: string) => {
     const res = await api.post(`/fee-structures/${id}/copy`, { targetAcademicYearId });
     return res.data;

@@ -100,10 +100,10 @@ const UserManagement = () => {
 
   const getRoleColors = (role: string) => {
      switch (role) {
-        case 'SUPER_ADMIN': return 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800/50';
-        case 'ADMIN': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800/50';
-        case 'ACCOUNTANT': return 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50';
-        default: return 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700';
+        case 'SUPER_ADMIN': return 'bg-purple-100  text-purple-700  border-purple-200';
+        case 'ADMIN': return 'bg-blue-100  text-blue-700  border-blue-200';
+        case 'ACCOUNTANT': return 'bg-emerald-100  text-emerald-700  border-emerald-200';
+        default: return 'bg-slate-100  text-slate-600  border-slate-200';
      }
   };
 
@@ -116,7 +116,7 @@ const UserManagement = () => {
         <div>
           <div className="flex items-center gap-3 mb-1">
              <Users className="text-indigo-600" size={32} />
-             <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase">User Management</h1>
+             <h1 className="text-3xl font-black text-slate-900  tracking-tight uppercase">User Management</h1>
           </div>
           <p className="text-slate-500 font-medium ml-1">Identity & Access Control</p>
         </div>
@@ -134,14 +134,14 @@ const UserManagement = () => {
       {/* STATS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
          {[
-           { label: 'Total Active Entities', val: totalUsers, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
-           { label: 'Live Connections', val: activeUsers, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-           { label: 'Suspended Tokens', val: inactiveUsers, color: 'text-rose-600', bg: 'bg-rose-50 dark:bg-rose-900/20' }
+           { label: 'Total Active Entities', val: totalUsers, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+           { label: 'Live Connections', val: activeUsers, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+           { label: 'Suspended Tokens', val: inactiveUsers, color: 'text-rose-600', bg: 'bg-rose-50' }
          ].map((stat, i) => (
-            <div key={i} className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border dark:border-slate-700 flex items-center justify-between group">
+            <div key={i} className="bg-white  p-6 rounded-3xl shadow-sm border  flex items-center justify-between group">
                <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{stat.label}</p>
-                  <h2 className="text-2xl font-black text-slate-900 dark:text-white leading-tight">{isLoading ? '-' : stat.val}</h2>
+                  <h2 className="text-2xl font-black text-slate-900  leading-tight">{isLoading ? '-' : stat.val}</h2>
                </div>
                <div className={clsx("w-12 h-12 rounded-2xl flex items-center justify-center transition-all group-hover:scale-110", stat.bg, stat.color)}>
                   <Users size={24} />
@@ -151,20 +151,20 @@ const UserManagement = () => {
       </div>
 
       {/* DATA GRID */}
-      <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border dark:border-slate-700 overflow-hidden">
+      <div className="bg-white  rounded-[2.5rem] shadow-xl shadow-slate-200/50  border  overflow-hidden">
         {/* Filters */}
-        <div className="p-6 border-b dark:border-slate-700 flex flex-col md:flex-row gap-4 bg-slate-50 dark:bg-slate-900/50 items-center">
+        <div className="p-6 border-b  flex flex-col md:flex-row gap-4 bg-slate-50  items-center">
           <div className="relative flex-1 group w-full md:max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={20} />
             <input 
               type="text" 
               placeholder="Search by identity or email..."
-              className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 focus:border-indigo-600 outline-none rounded-xl text-sm font-bold transition-all text-slate-900 dark:text-white placeholder:text-slate-400"
+              className="w-full pl-12 pr-4 py-3 bg-white  border-2 border-slate-100  focus:border-indigo-600 outline-none rounded-xl text-sm font-bold transition-all text-slate-900  placeholder:text-slate-400"
               onChange={(e) => debouncedSearch(e.target.value)}
             />
           </div>
           <select 
-             className="px-4 py-3 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-xl text-sm font-black uppercase tracking-widest outline-none text-slate-700 dark:text-slate-300 min-w-[180px]"
+             className="px-4 py-3 bg-white  border-2 border-slate-100  rounded-xl text-sm font-black uppercase tracking-widest outline-none text-slate-700  min-w-[180px]"
              value={roleFilter}
              onChange={(e) => setRoleFilter(e.target.value)}
           >
@@ -175,7 +175,7 @@ const UserManagement = () => {
              <option value="STAFF">Staff</option>
           </select>
           <select 
-             className="px-4 py-3 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-xl text-sm font-black uppercase tracking-widest outline-none text-slate-700 dark:text-slate-300 min-w-[180px]"
+             className="px-4 py-3 bg-white  border-2 border-slate-100  rounded-xl text-sm font-black uppercase tracking-widest outline-none text-slate-700  min-w-[180px]"
              value={statusFilter}
              onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -188,7 +188,7 @@ const UserManagement = () => {
         {/* Table */}
         <div className="overflow-x-auto pb-6">
           <table className="w-full">
-            <thead className="border-b dark:border-slate-700 bg-white dark:bg-slate-800">
+            <thead className="border-b  bg-white ">
               <tr>
                 <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Identity</th>
                 <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Access Role</th>
@@ -197,16 +197,16 @@ const UserManagement = () => {
                 <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Overrides</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-slate-100 ">
                {isLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="animate-pulse">
-                       <td colSpan={5} className="bg-slate-50 dark:bg-slate-900/30 h-16 border-b border-white dark:border-slate-800" />
+                       <td colSpan={5} className="bg-slate-50  h-16 border-b border-white " />
                     </tr>
                   ))
                ) : users.length === 0 ? (
                   <tr>
-                     <td colSpan={5} className="text-center p-12 text-xs font-black uppercase text-slate-400 tracking-widest hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors">
+                     <td colSpan={5} className="text-center p-12 text-xs font-black uppercase text-slate-400 tracking-widest hover:bg-slate-50  transition-colors">
                         Empty Sector Query
                      </td>
                   </tr>
@@ -216,15 +216,15 @@ const UserManagement = () => {
                     const roleColor = getRoleColors(u.role);
                     
                     return (
-                    <tr key={u.id} className={clsx("hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors group", isSelf && "bg-indigo-50/10 dark:bg-indigo-900/5")}>
+                    <tr key={u.id} className={clsx("hover:bg-slate-50  transition-colors group", isSelf && "bg-indigo-50/10 ")}>
                        <td className="px-8 py-6 whitespace-nowrap">
                           <div className="flex items-center gap-4">
                              <div className={clsx("w-10 h-10 rounded-full flex items-center justify-center text-xs font-black shadow-sm border", roleColor)}>
                                 {initials(u.name)}
                              </div>
                              <div>
-                                <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase flex items-center gap-2">
-                                   {u.name} {isSelf && <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400">(YOU)</span>}
+                                <h3 className="text-sm font-black text-slate-900  uppercase flex items-center gap-2">
+                                   {u.name} {isSelf && <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-100  text-indigo-600 ">(YOU)</span>}
                                 </h3>
                                 <p className="text-[10px] font-bold text-slate-500 tracking-wide mt-0.5">{u.email}</p>
                              </div>
@@ -237,9 +237,9 @@ const UserManagement = () => {
                        </td>
                        <td className="px-8 py-6 whitespace-nowrap">
                           {u.isActive ? (
-                             <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-lg border border-emerald-100 dark:border-emerald-900/50 uppercase tracking-widest">Active Link</span>
+                             <span className="text-[10px] font-black text-emerald-600 bg-emerald-50  px-3 py-1.5 rounded-lg border border-emerald-100  uppercase tracking-widest">Active Link</span>
                           ) : (
-                             <span className="text-[10px] font-black text-rose-500 bg-rose-50 dark:bg-rose-900/20 px-3 py-1.5 rounded-lg border border-rose-100 dark:border-rose-900/50 uppercase tracking-widest">Suspended</span>
+                             <span className="text-[10px] font-black text-rose-500 bg-rose-50  px-3 py-1.5 rounded-lg border border-rose-100  uppercase tracking-widest">Suspended</span>
                           )}
                        </td>
                        <td className="px-8 py-6 whitespace-nowrap text-xs font-bold text-slate-500 uppercase">
@@ -250,7 +250,7 @@ const UserManagement = () => {
                              <button 
                                 disabled={isSelf}
                                 onClick={() => setEditUserData(u)} 
-                                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-indigo-600 flex items-center justify-center transition-all disabled:opacity-20" 
+                                className="w-8 h-8 rounded-xl bg-slate-100  text-slate-500 hover:text-indigo-600 flex items-center justify-center transition-all disabled:opacity-20" 
                                 title={isSelf ? "Cannot edit own matrix" : "Edit Entity"}
                              >
                                 <Edit2 size={14} />
@@ -258,7 +258,7 @@ const UserManagement = () => {
                              <button 
                                 disabled={isSelf || u.role === 'SUPER_ADMIN'}
                                 onClick={() => handleToggleActive(u)} 
-                                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-amber-600 flex items-center justify-center transition-all disabled:opacity-20" 
+                                className="w-8 h-8 rounded-xl bg-slate-100  text-slate-500 hover:text-amber-600 flex items-center justify-center transition-all disabled:opacity-20" 
                                 title="Toggle Network Link"
                              >
                                 <ShieldAlert size={14} />
@@ -267,7 +267,7 @@ const UserManagement = () => {
                                 <button 
                                    disabled={isSelf}
                                    onClick={() => setResetPwdUserId(u.id)} 
-                                   className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-rose-600 flex items-center justify-center transition-all disabled:opacity-20" 
+                                   className="w-8 h-8 rounded-xl bg-slate-100  text-slate-500 hover:text-rose-600 flex items-center justify-center transition-all disabled:opacity-20" 
                                    title="Reset Security Key"
                                 >
                                    <Key size={14} />
@@ -291,32 +291,32 @@ const UserManagement = () => {
          {resetPwdUserId && (
             <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => !generatedPassword && setResetPwdUserId(null)} />
-              <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: -20 }} className="relative bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-2xl max-w-sm w-full border dark:border-slate-700">
+              <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: -20 }} className="relative bg-white  p-8 rounded-3xl shadow-2xl max-w-sm w-full border ">
                  {!generatedPassword ? (
                     <>
-                       <div className="w-12 h-12 bg-rose-100 dark:bg-rose-900/40 text-rose-600 rounded-2xl flex items-center justify-center mb-4">
+                       <div className="w-12 h-12 bg-rose-100  text-rose-600 rounded-2xl flex items-center justify-center mb-4">
                           <Key size={24} />
                        </div>
-                       <h3 className="text-xl font-black uppercase text-slate-900 dark:text-white leading-tight">Security Override</h3>
+                       <h3 className="text-xl font-black uppercase text-slate-900  leading-tight">Security Override</h3>
                        <p className="text-xs font-bold text-slate-500 mt-2 mb-6">You are asserting ROOT protocols to override the user's password matrix. Select method:</p>
                        
                        <label className="flex items-center gap-3 mb-4 cursor-pointer">
                           <input type="checkbox" checked={autoGenerate} onChange={() => setAutoGenerate(!autoGenerate)} className="w-5 h-5 accent-indigo-600 rounded" />
-                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Auto-Generate Token</span>
+                          <span className="text-sm font-bold text-slate-700 ">Auto-Generate Token</span>
                        </label>
 
                        {!autoGenerate && (
                           <input 
                              type="text" 
                              placeholder="New Password (min 8 chars)"
-                             className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 focus:border-indigo-600 rounded-xl font-bold text-sm outline-none transition-all mb-4"
+                             className="w-full px-4 py-3 bg-slate-50  border-2 border-slate-100  focus:border-indigo-600 rounded-xl font-bold text-sm outline-none transition-all mb-4"
                              value={manualPassword}
                              onChange={e => setManualPassword(e.target.value)}
                           />
                        )}
 
                        <div className="flex gap-2">
-                          <button onClick={() => setResetPwdUserId(null)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-all">Abort</button>
+                          <button onClick={() => setResetPwdUserId(null)} className="flex-1 py-3 bg-slate-100  text-slate-600  rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-all">Abort</button>
                           <button onClick={executePasswordReset} disabled={isResetting} className="flex-1 py-3 bg-rose-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-rose-500 transition-all flex items-center justify-center">
                              {isResetting ? <Loader2 className="animate-spin" size={16} /> : 'Override'}
                           </button>
@@ -327,11 +327,11 @@ const UserManagement = () => {
                        <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-emerald-50">
                           <CheckCircle2 size={32} />
                        </div>
-                       <h3 className="text-xl font-black uppercase text-slate-900 dark:text-white">Token Issued</h3>
+                       <h3 className="text-xl font-black uppercase text-slate-900 ">Token Issued</h3>
                        <p className="text-xs font-bold text-rose-500 uppercase tracking-widest mt-2 mb-6 animate-pulse">Copy this now — it will be permanently encrypted</p>
                        
-                       <div className="flex items-center justify-between p-4 bg-slate-100 dark:bg-slate-900 rounded-xl mb-6">
-                           <code className="text-lg font-black text-slate-800 dark:text-slate-200 select-all">{generatedPassword}</code>
+                       <div className="flex items-center justify-between p-4 bg-slate-100  rounded-xl mb-6">
+                           <code className="text-lg font-black text-slate-800  select-all">{generatedPassword}</code>
                            <button onClick={copyToClipboard} className="p-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition-colors">
                               {copied ? <CheckCircle2 size={18} /> : <Copy size={18} />}
                            </button>

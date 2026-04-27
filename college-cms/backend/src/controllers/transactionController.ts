@@ -16,6 +16,9 @@ export const getTransactions = async (req: Request, res: Response) => {
     dateFrom, 
     dateTo, 
     paymentMode, 
+    search,
+    courseId,
+    academicYearId,
     page = 1, 
     limit = 20 
   } = req.query;
@@ -29,6 +32,15 @@ export const getTransactions = async (req: Request, res: Response) => {
     ...(studentId && { studentId: String(studentId) }),
     ...(expenseCategoryId && { expenseCategoryId: String(expenseCategoryId) }),
     ...(paymentMode && { paymentMode: paymentMode as any }),
+    ...(search && {
+      OR: [
+        { receiptNo: { contains: String(search), mode: 'insensitive' } },
+        { student: { name: { contains: String(search), mode: 'insensitive' } } },
+        { student: { enrollmentNo: { contains: String(search), mode: 'insensitive' } } }
+      ]
+    }),
+    ...(courseId && { student: { courseId: String(courseId) } }),
+    ...(academicYearId && { student: { academicYearId: String(academicYearId) } }),
     ...(dateFrom || dateTo ? {
       transactionDate: {
         ...(dateFrom && { gte: new Date(String(dateFrom)) }),
@@ -185,7 +197,8 @@ export const generateReceiptPDF = async (req: Request, res: Response) => {
 
     if (!tx) return res.status(404).json({ message: 'Transaction not found or deleted' });
 
-    generateReceiptPDFInternal(res, tx);
+    const theme = (req.query.theme as string) || 'modern';
+    generateReceiptPDFInternal(res, tx, theme);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error generating PDF receipt' });
@@ -452,9 +465,74 @@ export const generateVoucherPDF = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Expense transaction not found' });
     }
 
-    generateVoucherPDFInternal(res, tx);
+    const theme = (req.query.theme as string) || 'modern';
+    generateVoucherPDFInternal(res, tx, theme);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error generating PDF voucher' });
+  }
+};
+export const getCollectionSummary = async (req: Request, res: Response) => {
+  try {
+    const now = new Date();
+    // High-Precision IST Rollover (Institutional Standard: Asia/Kolkata)
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(now.getTime() + istOffset);
+    const startOfToday = new Date(istDate.getFullYear(), istDate.getMonth(), istDate.getDate());
+    startOfToday.setTime(startOfToday.getTime() - istOffset);
+    
+    console.log('[DEBUG] getCollectionSummary:', {
+       now: now.toISOString(),
+       istNow: istDate.toISOString(),
+       startOfToday: startOfToday.toISOString()
+    });
+
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [todayAgg, monthAgg, feeAgg] = await Promise.all([
+      prisma.transaction.aggregate({
+        where: { type: 'CREDIT', subType: 'FEE_PAYMENT', transactionDate: { gte: startOfToday }, deletedAt: null },
+        _sum: { amount: true }
+      }),
+      prisma.transaction.aggregate({
+        where: { type: 'CREDIT', subType: 'FEE_PAYMENT', transactionDate: { gte: startOfMonth }, deletedAt: null },
+        _sum: { amount: true }
+      }),
+      prisma.studentFee.aggregate({
+        _sum: { 
+          payableAmount: true,
+          paidAmount: true,
+          balance: true,
+          totalAmount: true
+        } as any
+      })
+    ]);
+
+    console.log('[DEBUG] Collections Query Results:', {
+       todayTotal: todayAgg._sum.amount,
+       monthTotal: monthAgg._sum.amount,
+       rawFeeAgg: feeAgg._sum
+    });
+
+    const nettSessionFee = Number((feeAgg._sum as any).payableAmount || 0);
+    const collected = Number(feeAgg._sum.paidAmount || 0);
+    const pending = Number(feeAgg._sum.balance || 0);
+    const totalRaw = Number(feeAgg._sum.totalAmount || 0);
+    const discountBurn = totalRaw - nettSessionFee;
+
+    res.json({
+      success: true,
+      data: {
+        todayTotal: Number(todayAgg._sum.amount || 0),
+        monthTotal: Number(monthAgg._sum.amount || 0),
+        totalPending: pending,
+        nettSessionFee,
+        collected,
+        pending,
+        discountBurn
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error fetching collection summary' });
   }
 };

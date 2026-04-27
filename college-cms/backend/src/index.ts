@@ -65,8 +65,13 @@ app.get(['/api/health', '/health'], async (req: express.Request, res: express.Re
       db: "connected",
       environment: process.env.NODE_ENV || 'development'
     });
-  } catch (error) {
-    res.status(503).json({ status: "error", db: "disconnected" });
+  } catch (error: any) {
+    console.error('❌ DATABASE CONNECTION ERROR:', error.message);
+    res.status(503).json({ 
+      status: "error", 
+      db: "disconnected",
+      reason: process.env.NODE_ENV === 'development' ? error.message : "Internal database error"
+    });
   }
 });
 

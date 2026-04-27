@@ -1,175 +1,687 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { transactionService } from '../../services/transactionService';
-import api from '../../api/axios';
-import { Search, Eye, Download, SearchIcon, Plus, FileText, Banknote, CreditCard, ChevronRight } from 'lucide-react';
-import FeePaymentModal from '../../components/accounts/FeePaymentModal';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api, { getAccessToken } from '../../api/axios';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Search, Plus, Download, ArrowRight, CheckCircle, Receipt, Trash2, X, Filter, Upload, Zap, Loader2 } from 'lucide-react';
+import { clsx } from 'clsx';
 import { toast } from 'sonner';
 
 const FeeCollection = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isPaymentModalOpen, setPaymentModalOpen] = useState(false);
-  
-  // Reuse dashboard summary for top cards
-  const { data: summary } = useQuery({
-    queryKey: ['dashboard', 'summary'],
-    queryFn: async () => {
-      const { data } = await api.get('/dashboard/summary');
-      return data;
-    }
-  });
+   const queryClient = useQueryClient();
+   const [modalOpen, setModalOpen] = useState(false);
+   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+   const [step, setStep] = useState(1);
+   const [selectedStudent, setSelectedStudent] = useState<any>(null);
+   const [searchTerm, setSearchTerm] = useState('');
+   const [filterProgram, setFilterProgram] = useState('');
+   const [filterYear, setFilterYear] = useState('');
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['transactions', 'credits', 'fee_payment', searchTerm],
-    queryFn: async () => {
-      const response = await transactionService.getTransactions({
-        type: 'CREDIT',
-        subType: 'FEE_PAYMENT',
-        search: searchTerm,
-        limit: 50
-      });
-      return response;
-    }
-  });
+   // Ledger Filters
+   const [ledgerSearch, setLedgerSearch] = useState('');
+   const [ledgerCourse, setLedgerCourse] = useState('');
+   const [ledgerAcademicYear, setLedgerAcademicYear] = useState('');
+   const [ledgerPaymentMode, setLedgerPaymentMode] = useState('');
+   const [page, setPage] = useState(1);
+   const [limit, setLimit] = useState(10);
 
-  const handleDownload = async (id: string, receiptNo: string) => {
-    try {
-      const blob = await transactionService.getReceiptPdf(id);
-      transactionService.downloadReceipt(blob, receiptNo);
-      toast.success('Receipt downloaded successfully');
-    } catch (err) {
-      toast.error('Failed to download receipt');
-    }
-  };
+   const [paymentData, setPaymentData] = useState({
+      amount: 0,
+      paymentMode: 'CASH',
+      referenceNo: '',
+      remarks: '',
+      transactionDate: new Date().toISOString().split('T')[0] // Default to today ISO
+   });
 
-  const todayTotal = summary?.finances?.monthCredit || 0; // Simulated today total using monthCredit as requested fallback
-  const monthTotal = summary?.finances?.monthCredit || 0;
+   const { data: recentTransactions, isLoading } = useQuery({
+      queryKey: ['transactions', 'credit', page, limit, ledgerSearch, ledgerCourse, ledgerAcademicYear, ledgerPaymentMode],
+      queryFn: async () => {
+         const { data } = await api.get(`/transactions?type=CREDIT&page=${page}&limit=${limit}&search=${ledgerSearch}&courseId=${ledgerCourse}&academicYearId=${ledgerAcademicYear}&paymentMode=${ledgerPaymentMode}`);
+         return data.data;
+      }
+   });
 
-  return (
-    <div className="space-y-8 animate-fade-in max-w-[1600px] mx-auto">
-      {/* Header and Summary */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-             <Banknote className="text-indigo-600" size={32} />
-             <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase">Fee Collection</h1>
-          </div>
-          <p className="text-slate-500 font-medium ml-1">Institutional Revenue & Fiscal Terminals</p>
-        </div>
-        <div className="flex justify-end gap-3 flex-wrap">
-          <button 
-            onClick={() => setPaymentModalOpen(true)}
-            className="bg-indigo-600 text-white px-6 py-3 rounded-2xl flex items-center gap-3 text-xs font-black uppercase tracking-widest shadow-xl shadow-indigo-600/30 hover:bg-indigo-500 transition-all active:scale-95"
-          >
-            <Plus size={20} /> Record Payment
-          </button>
-        </div>
-      </div>
+   const { data: searchResults } = useQuery({
+      queryKey: ['students', 'search', searchTerm, filterProgram, filterYear],
+      queryFn: async () => {
+         if (searchTerm.length < 2 && !filterProgram && !filterYear) return [];
+         const { data } = await api.get(`/students?search=${searchTerm}&courseId=${filterProgram}&yearOfStudy=${filterYear}`);
+         return data.students;
+      },
+      enabled: searchTerm.length >= 2 || !!filterProgram || !!filterYear
+   });
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-         <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border dark:border-slate-700 flex items-center justify-between">
+   const { data: summary, refetch: refetchSummary } = useQuery({
+      queryKey: ['collections-summary'],
+      queryFn: async () => {
+         const { data } = await api.get('/transactions/summary');
+         return data.data;
+      }
+   });
+
+   const { data: courses } = useQuery({
+      queryKey: ['courses'],
+      queryFn: async () => {
+         const { data } = await api.get('/courses');
+         return data.data;
+      }
+   });
+
+   const { data: academicYears } = useQuery({
+      queryKey: ['academic-years'],
+      queryFn: async () => {
+         const { data } = await api.get('/academic-years');
+         return data.data;
+      }
+   });
+
+   const paymentMutation = useMutation({
+      mutationFn: async (data: any) => {
+         const { data: res } = await api.post('/transactions/fee-payment', data);
+         return res;
+      },
+      onSuccess: () => {
+         queryClient.invalidateQueries({ queryKey: ['transactions'] });
+         queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+         refetchSummary();
+         setStep(3);
+      }
+   });
+
+   const handleStudentSelect = (student: any) => {
+      setSelectedStudent(student);
+      const balance = student.fees[0]?.balance || 0;
+      setPaymentData(p => ({ ...p, amount: Number(balance) }));
+      setStep(2);
+   };
+
+   const downloadReceipt = (txId: string) => {
+      const token = getAccessToken();
+      window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:5002/api'}/transactions/${txId}/receipt-pdf?token=${token}`, '_blank');
+   };
+
+   // Calculate Percentages
+   const collectionProgress = summary ? Math.round((summary.collected / summary.nettSessionFee) * 100) : 0;
+   const pendingRatio = summary ? Math.round((summary.pending / summary.nettSessionFee) * 100) : 0;
+   const totalLiability = summary ? (summary.nettSessionFee + summary.discountBurn) : 0;
+   const discountBurnRate = (summary && totalLiability > 0) ? Math.round((summary.discountBurn / totalLiability) * 100) : 0;
+
+   return (
+      <div className="space-y-10 animate-fade-in max-w-[1600px] mx-auto">
+         {/* Header */}
+         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div>
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Today's Pulse</p>
-               <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight">₹{Number(todayTotal).toLocaleString()}</h2>
+               <h1 className="text-3xl font-black text-slate-900  mb-1 uppercase tracking-tighter">Fee Collection Terminal</h1>
+               <p className="text-slate-500 font-medium tracking-tight">Manage institutional revenue and student financial records</p>
             </div>
-            <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-2xl"><Banknote size={24} /></div>
-         </div>
-         <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border dark:border-slate-700 flex items-center justify-between">
-            <div>
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Monthly Ledger</p>
-               <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight">₹{Number(monthTotal).toLocaleString()}</h2>
+            <div className="flex gap-4">
+               <button
+                  onClick={() => setIsImportModalOpen(true)}
+                  className="bg-white border-2 border-slate-900 text-slate-900 px-8 py-5 rounded-2xl flex items-center gap-3 font-black text-sm uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95"
+               >
+                  <Upload size={20} />
+                  Import Legacy
+               </button>
+               <button
+                  onClick={() => { setModalOpen(true); setStep(1); }}
+                  className="bg-indigo-600 text-white px-8 py-5 rounded-2xl flex items-center gap-3 font-black text-sm uppercase tracking-widest shadow-2xl shadow-indigo-600/30 hover:bg-slate-900 transition-all active:scale-95"
+               >
+                  <Plus size={20} />
+                  Collect Fee
+               </button>
             </div>
-            <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 rounded-2xl"><CreditCard size={24} /></div>
          </div>
-      </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border dark:border-slate-700 overflow-hidden space-y-4">
-        <div className="p-6 border-b dark:border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50 dark:bg-slate-900/50">
-          <div className="relative flex-1 group max-w-sm">
-            <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={20} />
-            <input 
-              type="text" 
-              placeholder="Search receipts..."
-              className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 focus:border-indigo-600 outline-none rounded-xl text-sm font-bold transition-all text-slate-900 dark:text-white placeholder:text-slate-400 focus:shadow-md"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+         {/* Summary Cards */}
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <CollectionCard
+               title="Today's Collection"
+               subtitle="Live pulse"
+               amount={`₹${(summary?.todayTotal || 0).toLocaleString()}`}
+               color="indigo"
+               pulse
             />
-          </div>
-        </div>
+            <CollectionCard
+               title="Total Fee"
+               subtitle="Expected revenue"
+               amount={`₹${(summary?.nettSessionFee || 0).toLocaleString()}`}
+               color="emerald"
+            />
+            <CollectionCard
+               title="Collected"
+               subtitle="Payment recovered"
+               amount={`₹${(summary?.collected || 0).toLocaleString()}`}
+               color="blue"
+               percentage={collectionProgress}
+            />
+            <CollectionCard
+               title="Pending"
+               subtitle="Outstanding amount"
+               amount={`₹${(summary?.pending || 0).toLocaleString()}`}
+               color="rose"
+               percentage={pendingRatio}
+            />
+            <CollectionCard
+               title="Total Discount"
+               subtitle="Scholarship total"
+               amount={`₹${(summary?.discountBurn || 0).toLocaleString()}`}
+               color="amber"
+               percentage={discountBurnRate}
+            />
+         </div>
 
-        <div className="overflow-x-auto pb-6">
-          <table className="w-full">
-            <thead className="border-b dark:border-slate-700">
-              <tr>
-                <th className="px-8 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
-                <th className="px-8 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Receipt No</th>
-                <th className="px-8 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Student Details</th>
-                <th className="px-8 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount</th>
-                <th className="px-8 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Mode / Ref</th>
-                <th className="px-8 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-               {isLoading ? (
-                  <tr>
-                     <td colSpan={6} className="p-20 text-center">
-                        <div className="flex flex-col items-center justify-center gap-4">
-                           <div className="w-10 h-10 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin" />
-                           <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest animate-pulse">Loading Fiscal Ledger Node...</p>
+         {/* Filter Card */}
+         <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 animate-fade-in group hover:shadow-2xl hover:shadow-slate-200/50 transition-all">
+            <div className="flex flex-col lg:flex-row gap-6 items-center">
+               <div className="relative flex-1 group w-full">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-all" size={20} />
+                  <input
+                     type="text"
+                     placeholder="Search ledger by name, enrollment, or receipt..."
+                     className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-600 focus:bg-white rounded-2xl font-bold transition-all outline-none"
+                     value={ledgerSearch}
+                     onChange={(e) => { setLedgerSearch(e.target.value); setPage(1); }}
+                  />
+               </div>
+               <div className="flex flex-wrap lg:flex-nowrap gap-4 w-full lg:w-auto">
+                  <select
+                     className="flex-1 lg:w-56 p-5 bg-slate-50 border-2 border-transparent focus:border-indigo-600 rounded-2xl text-xs font-black uppercase tracking-widest outline-none"
+                     value={ledgerCourse}
+                     onChange={(e) => { setLedgerCourse(e.target.value); setPage(1); }}
+                  >
+                     <option value="">All Programs</option>
+                     {Array.isArray(courses) && courses.map((c: any) => (
+                        <option key={c.id} value={c.id}>{c.name?.replace(/_/g, '. ')}</option>
+                     ))}
+                  </select>
+                  <select
+                     className="flex-1 lg:w-56 p-5 bg-slate-50 border-2 border-transparent focus:border-indigo-600 rounded-2xl text-xs font-black uppercase tracking-widest outline-none"
+                     value={ledgerAcademicYear}
+                     onChange={(e) => { setLedgerAcademicYear(e.target.value); setPage(1); }}
+                  >
+                     <option value="">All Years</option>
+                     {Array.isArray(academicYears) && academicYears.map((y: any) => (
+                        <option key={y.id} value={y.id}>{y.label}</option>
+                     ))}
+                  </select>
+                  <select
+                     className="flex-1 lg:w-56 p-5 bg-slate-50 border-2 border-transparent focus:border-indigo-600 rounded-2xl text-xs font-black uppercase tracking-widest outline-none"
+                     value={ledgerPaymentMode}
+                     onChange={(e) => { setLedgerPaymentMode(e.target.value); setPage(1); }}
+                  >
+                     <option value="">All Modes</option>
+                     <option value="CASH">CASH</option>
+                     <option value="UPI">UPI</option>
+                     <option value="BANK_TRANSFER">BANK TRANSFER</option>
+                     <option value="CHEQUE">CHEQUE</option>
+                  </select>
+               </div>
+            </div>
+         </div>
+
+         {/* Transactions Ledger */}
+         <div className="bg-white  rounded-[2.5rem] shadow-xl shadow-slate-200/50  border  overflow-hidden">
+            <div className="p-8 border-b  flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50">
+               <div>
+                  <h3 className="text-xl font-black text-slate-900 ">Fiscal Audit Log</h3>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Verified transaction historical data</p>
+               </div>
+            </div>
+
+            <div className="overflow-x-auto">
+               <table className="w-full">
+                  <thead>
+                     <tr className="bg-white ">
+                        <th className="px-8 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest border-b">Sr No.</th>
+                        <th className="px-8 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest border-b">Receipt ID</th>
+                        <th className="px-8 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest border-b">Identity</th>
+                        <th className="px-8 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest border-b">Amount</th>
+                        <th className="px-8 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest border-b">Payment Mode</th>
+                        <th className="px-8 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest border-b">Dossier</th>
+                     </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 ">
+                     {isLoading ? (
+                        <tr><td colSpan={6} className="p-20 text-center font-bold text-slate-400 uppercase text-xs tracking-widest animate-pulse">Accessing Ledger Node...</td></tr>
+                     ) : (
+                        (recentTransactions?.transactions || []).map((tx: any, idx: number) => (
+                           <tr key={tx.id} className="hover:bg-slate-50  transition-colors group cursor-pointer">
+                              <td className="px-8 py-6 whitespace-nowrap text-xs font-bold text-slate-400">
+                                 {(page - 1) * limit + idx + 1}
+                              </td>
+                              <td className="px-8 py-6 whitespace-nowrap">
+                                 <p className="text-sm font-black text-indigo-600 tracking-tight">{tx.receiptNo}</p>
+                                 <p className="text-[10px] font-bold text-slate-400">{new Date(tx.transactionDate).toLocaleDateString()}</p>
+                              </td>
+                              <td className="px-8 py-6 whitespace-nowrap">
+                                 <div className="text-sm font-black text-slate-800  uppercase">{tx.student?.name}</div>
+                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{tx.student?.enrollmentNo}</div>
+                              </td>
+                              <td className="px-8 py-6 whitespace-nowrap">
+                                 <p className="text-lg font-black text-emerald-600">₹{(Number(tx.amount) || 0).toLocaleString()}</p>
+                              </td>
+                              <td className="px-8 py-6 whitespace-nowrap">
+                                 <span className="px-3 py-1 bg-slate-100  rounded-lg text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                    {tx.paymentMode}
+                                 </span>
+                              </td>
+                              <td className="px-8 py-6 whitespace-nowrap text-right">
+                                 <button
+                                    onClick={(e) => { e.stopPropagation(); downloadReceipt(tx.id); }}
+                                    className="w-11 h-11 bg-slate-50  rounded-2xl text-slate-400 hover:bg-slate-900 hover:text-white transition-all flex items-center justify-center ml-auto shadow-sm group-hover:shadow-md"
+                                 >
+                                    <Download size={20} />
+                                 </button>
+                              </td>
+                           </tr>
+                        ))
+                     )}
+                  </tbody>
+               </table>
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="p-8 bg-slate-50 border-t flex flex-col md:flex-row justify-between items-center gap-6">
+               <div className="flex items-center gap-4">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entries per page:</p>
+                  <select
+                     className="bg-white border-2 border-transparent focus:border-indigo-600 p-2 rounded-xl text-xs font-black outline-none transition-all"
+                     value={limit}
+                     onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+                  >
+                     <option value={10}>10 Records</option>
+                     <option value={20}>20 Records</option>
+                     <option value={50}>50 Records</option>
+                  </select>
+               </div>
+               <div className="flex items-center gap-2">
+                  <button
+                     onClick={() => setPage(p => Math.max(1, p - 1))}
+                     disabled={page === 1}
+                     className="px-6 py-3 bg-white border-2 border-transparent hover:border-slate-900 disabled:opacity-50 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
+                  >
+                     Back
+                  </button>
+                  <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center font-black text-xs">
+                     {page}
+                  </div>
+                  <button
+                     onClick={() => setPage(p => p + 1)}
+                     disabled={!recentTransactions?.meta || page >= recentTransactions.meta.totalPages}
+                     className="px-6 py-3 bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-slate-900/20"
+                  >
+                     Next
+                  </button>
+               </div>
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Total Results: {recentTransactions?.meta?.total || 0}
+               </p>
+            </div>
+         </div>
+
+         {/* Modern Payment Wizard */}
+         <AnimatePresence>
+            {modalOpen && (
+               <div className="fixed inset-0 z-[100] flex items-start justify-center p-6 bg-slate-900/60 backdrop-blur-sm overflow-y-auto pt-32 pb-20">
+                  <motion.div
+                     initial={{ opacity: 0, scale: 0.95, y: 50 }}
+                     animate={{ opacity: 1, scale: 1, y: 0 }}
+                     exit={{ opacity: 0, scale: 0.95, y: 50 }}
+                     className="bg-white rounded-[3.5rem] w-full max-w-3xl shadow-[0_40px_80px_-15px_rgba(0,0,0,0.6)] overflow-hidden border border-slate-100 flex flex-col relative"
+                  >
+                     {/* Modal Header */}
+                     <div className="bg-indigo-600 p-8 text-white relative flex justify-between items-center overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+                        <div className="relative z-10">
+                           <h2 className="text-2xl font-black uppercase tracking-tight">Entrance Payment</h2>
+                           <p className="text-xs font-bold text-indigo-200 mt-1 uppercase tracking-widest">SCHS Fiscal Intelligence</p>
                         </div>
-                     </td>
-                  </tr>
-               ) : (data?.transactions || []).length === 0 ? (
-                  <tr>
-                     <td colSpan={6} className="text-center p-8 text-xs font-black uppercase text-slate-400 tracking-widest">
-                        No transactions found
-                     </td>
-                  </tr>
-               ) : (
-                 (data?.transactions || []).map((t: any) => (
-                    <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
-                       <td className="px-8 py-4 whitespace-nowrap text-xs font-bold text-slate-500">
-                          {new Date(t.transactionDate).toLocaleDateString()}
-                       </td>
-                       <td className="px-8 py-4 whitespace-nowrap">
-                          <span className="text-xs font-black text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1.5 rounded-lg border border-indigo-100 dark:border-indigo-900/50">
-                             {t.receiptNo}
-                          </span>
-                       </td>
-                       <td className="px-8 py-4 whitespace-nowrap">
-                          <p className="text-sm font-black text-slate-900 dark:text-white uppercase">{t.student?.name}</p>
-                          <p className="text-[10px] font-bold text-slate-400 tracking-widest">{t.student?.enrollmentNo}</p>
-                       </td>
-                       <td className="px-8 py-4 whitespace-nowrap text-sm font-black text-emerald-600">
-                          ₹{Number(t.amount).toLocaleString()}
-                       </td>
-                       <td className="px-8 py-4 whitespace-nowrap">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">{t.paymentMode}</p>
-                          {t.referenceNo && <p className="text-[9px] font-bold text-slate-400 tracking-widest">{t.referenceNo}</p>}
-                       </td>
-                       <td className="px-8 py-4 whitespace-nowrap text-right">
-                          <div className="flex justify-end gap-2 text-slate-400">
-                             {/* Placeholder for Eye icon since modal in step 3 triggers preview directly, doing it directly for lists is harder without setting state. Let's just hook up download */}
-                             <button
-                               onClick={() => handleDownload(t.id, t.receiptNo)}
-                               className="p-2 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-600 rounded-xl transition-all"
-                               title="Download PDF"
-                             >
-                                <Download size={18} />
-                             </button>
-                          </div>
-                       </td>
-                    </tr>
-                 ))
-               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                        <div className="flex gap-2 relative z-10">
+                           {[1, 2, 3].map(i => (
+                              <div key={i} className={clsx("w-3 h-3 rounded-full transition-all duration-300", step === i ? "bg-white scale-125" : "bg-indigo-400 opacity-50")} />
+                           ))}
+                        </div>
+                        <button onClick={() => setModalOpen(false)} className="absolute top-8 right-8 text-white/50 hover:text-white transition-colors">
+                           <X size={24} />
+                        </button>
+                     </div>
 
-      <FeePaymentModal open={isPaymentModalOpen} onClose={() => setPaymentModalOpen(false)} />
-    </div>
-  );
+                     <div className="p-10">
+                        {step === 1 && (
+                           <div className="space-y-8">
+                              <div>
+                                 <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Locate Student Identity</label>
+                                 <div className="flex flex-col gap-4">
+                                    <div className="relative group flex-1">
+                                       <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-all" size={20} />
+                                       <input
+                                          type="text"
+                                          placeholder="Name or Enrollment No..."
+                                          className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent focus:border-indigo-600 focus:bg-white rounded-2xl font-bold transition-all outline-none"
+                                          value={searchTerm}
+                                          onChange={(e) => setSearchTerm(e.target.value)}
+                                       />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                       <select
+                                          className="p-4 bg-slate-50 border-2 border-transparent focus:border-indigo-600 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none"
+                                          value={filterProgram}
+                                          onChange={(e) => { setFilterProgram(e.target.value); setFilterYear(''); }}
+                                       >
+                                          <option value="">{!courses ? 'Loading Programs...' : 'All Programs'}</option>
+                                          {Array.isArray(courses) && courses.map((c: any) => (
+                                             <option key={c.id} value={c.id}>{c.name?.replace(/_/g, '. ')}</option>
+                                          ))}
+                                       </select>
+                                       <select
+                                          className="p-4 bg-slate-50 border-2 border-transparent focus:border-indigo-600 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none"
+                                          value={filterYear}
+                                          onChange={(e) => setFilterYear(e.target.value)}
+                                       >
+                                          <option value="">All Years</option>
+                                          {(filterProgram && Array.isArray(courses)) ? (
+                                             courses.find((c: any) => c.id === filterProgram)?.name?.includes('D_PHARMA')
+                                                ? [1, 2].map(y => <option key={y} value={y}>Year {y}</option>)
+                                                : [1, 2, 3, 4].map(y => <option key={y} value={y}>Year {y}</option>)
+                                          ) : [1, 2, 3, 4].map(y => <option key={y} value={y}>Year {y}</option>)}
+                                       </select>
+                                    </div>
+                                 </div>
+                              </div>
+
+                              <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                                 {(!searchTerm && !filterProgram && !filterYear) ? (
+                                    <div className="text-center p-12 bg-slate-50  rounded-3xl border-2 border-dashed border-slate-100 ">
+                                       <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Enter search criteria to locate student</p>
+                                    </div>
+                                 ) : (searchResults || []).length === 0 ? (
+                                    <div className="text-center p-12 bg-slate-50 rounded-3xl border border-slate-100 italic text-slate-400 text-sm">
+                                       No active students found matching criteria
+                                    </div>
+                                 ) : (
+                                    (searchResults || []).map((student: any) => (
+                                       <button
+                                          key={student.id}
+                                          onClick={() => handleStudentSelect(student)}
+                                          className="w-full p-5 bg-white  border  rounded-2xl hover:border-indigo-600 hover:shadow-xl hover:shadow-indigo-600/10 text-left transition-all flex justify-between items-center group"
+                                       >
+                                          <div>
+                                             <div className="font-black text-slate-800  uppercase truncate max-w-[200px]">{student.name}</div>
+                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{student.enrollmentNo}</p>
+                                          </div>
+                                          <div className="text-right">
+                                             <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Pending</p>
+                                             <p className="text-lg font-black text-rose-600 group-hover:scale-110 transition-transform">₹{(Number(student.fees[0]?.balance) || 0).toLocaleString()}</p>
+                                          </div>
+                                       </button>
+                                    ))
+                                 )}
+                              </div>
+                           </div>
+                        )}
+
+                        {step === 2 && selectedStudent && (
+                           <div className="space-y-8 animate-fade-in">
+                              <div className="bg-gradient-to-br from-indigo-900 to-indigo-700 p-8 rounded-[2rem] text-white shadow-xl shadow-indigo-900/40 relative overflow-hidden">
+                                 <div className="absolute top-0 right-0 p-4 opacity-10"><Receipt size={80} /></div>
+                                 <div className="flex justify-between items-end relative z-10">
+                                    <div>
+                                       <p className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-1">Authenticated Payload for</p>
+                                       <h3 className="text-2xl font-black text-white">{selectedStudent.name}</h3>
+                                       <p className="text-xs font-bold text-indigo-200 mt-1 uppercase tracking-tighter">{selectedStudent.enrollmentNo}</p>
+                                    </div>
+                                    <div className="text-right">
+                                       <p className="text-[10px] font-black text-rose-300 uppercase tracking-widest mb-1">Fiscal Liability</p>
+                                       <p className="text-2xl font-black text-rose-400">₹{(Number(selectedStudent.fees[0]?.balance) || 0).toLocaleString()}</p>
+                                    </div>
+                                 </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-6">
+                                 <div className="col-span-2 sm:col-span-1 space-y-2">
+                                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Transfer Amount</label>
+                                    <input
+                                       type="number"
+                                       className="w-full p-4 bg-slate-50  border-2 border-transparent focus:border-indigo-600 focus:bg-white rounded-2xl font-black text-lg transition-all"
+                                       value={paymentData.amount}
+                                       onChange={(e) => setPaymentData({ ...paymentData, amount: Number(e.target.value) })}
+                                    />
+                                 </div>
+                                 <div className="col-span-2 sm:col-span-1 space-y-2">
+                                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Channel Mode</label>
+                                    <select
+                                       className="w-full p-4 bg-slate-50  border-2 border-transparent focus:border-indigo-600 rounded-2xl font-black text-lg appearance-none"
+                                       value={paymentData.paymentMode}
+                                       onChange={(e) => setPaymentData({ ...paymentData, paymentMode: e.target.value })}
+                                    >
+                                       <option value="CASH">CASH ENTRY</option>
+                                       <option value="UPI">UPI DIGITAL</option>
+                                       <option value="CHEQUE">CHEQUE PAY</option>
+                                       <option value="BANK_TRANSFER">WIRED BANK</option>
+                                    </select>
+                                 </div>
+                                 <div className="col-span-2 space-y-2">
+                                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Terminal Reference No</label>
+                                    <input
+                                       type="text"
+                                       className="w-full p-4 bg-slate-50  border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold"
+                                       placeholder="Transaction ID, Cheque No, or Remarks"
+                                       value={paymentData.referenceNo}
+                                       onChange={(e) => setPaymentData({ ...paymentData, referenceNo: e.target.value })}
+                                    />
+                                 </div>
+                              </div>
+
+                              <button
+                                 onClick={() => {
+                                    if (!selectedStudent?.fees || selectedStudent.fees.length === 0) {
+                                       alert("No fee record found. Error sync in database.");
+                                       return;
+                                    }
+                                    const payload = {
+                                       ...paymentData,
+                                       transactionDate: paymentData.transactionDate === new Date().toISOString().split('T')[0]
+                                          ? new Date().toISOString()
+                                          : paymentData.transactionDate
+                                    };
+                                    paymentMutation.mutate({ studentFeeId: selectedStudent.fees[0].id, ...payload });
+                                 }}
+                                 disabled={paymentMutation.isPending || !selectedStudent?.fees?.[0]?.id}
+                                 className="w-full bg-indigo-600 text-white py-6 rounded-3xl font-black text-xl shadow-2xl shadow-indigo-600/40 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                              >
+                                 {paymentMutation.isPending ? 'Processing...' : 'Complete Payment & Get Receipt'}
+                              </button>
+                           </div>
+                        )}
+
+                        {step === 3 && (
+                           <div className="text-center space-y-8 py-12 animate-fade-in">
+                              <motion.div
+                                 initial={{ scale: 0 }}
+                                 animate={{ scale: 1 }}
+                                 className="w-24 h-24 bg-emerald-100 text-emerald-600 rounded-[2.25rem] flex items-center justify-center mx-auto shadow-2xl shadow-emerald-500/20"
+                              >
+                                 <CheckCircle size={48} />
+                              </motion.div>
+                              <div>
+                                 <h2 className="text-3xl font-black text-slate-900  mb-2 tracking-tight">Operation Successful</h2>
+                                 <p className="text-slate-500 font-medium">Clearance established. Ledger record updated for student Identity.</p>
+                              </div>
+                              <div className="flex gap-4 pt-4">
+                                 <button
+                                    onClick={() => downloadReceipt(paymentMutation.data.data.transaction.id)}
+                                    className="flex-1 bg-indigo-600 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-slate-900 transition-all shadow-xl shadow-indigo-600/20"
+                                 >
+                                    <Receipt size={20} /> Download Receipt
+                                 </button>
+                                 <button
+                                    onClick={() => setModalOpen(false)}
+                                    className="flex-1 bg-white border-2 border-slate-900 text-slate-900 py-5 rounded-2xl font-black text-sm uppercase tracking-widest transition-all hover:bg-slate-50"
+                                 >
+                                    Close Window
+                                 </button>
+                              </div>
+                           </div>
+                        )}
+                     </div>
+                  </motion.div>
+               </div>
+            )}
+         </AnimatePresence>
+         <ImportFeesModal
+            isOpen={isImportModalOpen}
+            onClose={() => setIsImportModalOpen(false)}
+         />
+      </div>
+   );
 };
+
+const ImportFeesModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
+   const queryClient = useQueryClient();
+   const [file, setFile] = useState<File | null>(null);
+   const [isUploading, setIsUploading] = useState(false);
+
+   const handleUpload = async () => {
+      if (!file) return toast.error("Please select an Excel file");
+
+      setIsUploading(true);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+         const { data } = await api.post('/students/import-fees', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+         });
+         toast.success(data.message);
+         queryClient.invalidateQueries({ queryKey: ['collections-summary'] });
+         queryClient.invalidateQueries({ queryKey: ['transactions'] });
+         onClose();
+      } catch (error: any) {
+         toast.error(error.response?.data?.message || "Fee Sync failed");
+      } finally {
+         setIsUploading(false);
+      }
+   };
+
+   if (!isOpen) return null;
+
+   return (
+      <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+         <div className="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border-4 border-white">
+            <div className="p-8 border-b flex justify-between items-center bg-slate-50">
+               <div>
+                  <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Fee Ledger Import</h2>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Institutional Revenue Synchronization</p>
+               </div>
+               <button onClick={onClose} className="p-3 hover:bg-white rounded-2xl transition-all text-slate-400 hover:text-slate-900 border border-transparent hover:border-slate-100">
+                  <X size={20} />
+               </button>
+            </div>
+
+            <div className="p-8 space-y-6">
+               <div className="relative p-8 border-2 border-dashed border-slate-200 rounded-[2rem] bg-slate-50 flex flex-col items-center justify-center text-center group hover:border-indigo-400 transition-all">
+                  <div className="w-20 h-20 bg-white rounded-[1.5rem] flex items-center justify-center shadow-sm mb-4 border border-slate-100 group-hover:scale-110 transition-transform text-indigo-600">
+                     <Upload size={36} />
+                  </div>
+                  <p className="text-sm font-black text-slate-700 uppercase">Select Fee Dataset</p>
+                  <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Excel / CSV Infrastructure</p>
+                  <input
+                     type="file"
+                     accept=".xlsx,.xls,.csv"
+                     className="absolute inset-0 opacity-0 cursor-pointer"
+                     onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  />
+                  {file && (
+                     <div className="mt-4 px-5 py-2.5 bg-indigo-600 rounded-xl text-[10px] font-black text-white uppercase tracking-widest shadow-lg shadow-indigo-600/20">
+                        {file.name}
+                     </div>
+                  )}
+               </div>
+
+               <div className="bg-slate-50 p-6 rounded-2xl space-y-3">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Data Matrix Requirement:</p>
+                  <div className="flex flex-wrap gap-2">
+                     {['Student Name', 'Branch', 'Year', 'Discounted Price', 'Amount Paid'].map(h => (
+                        <span key={h} className="px-3 py-1.5 bg-white border border-slate-100 rounded-lg text-[9px] font-black text-slate-600 uppercase">{h}</span>
+                     ))}
+                  </div>
+               </div>
+
+               <button
+                  onClick={handleUpload}
+                  disabled={!file || isUploading}
+                  className="w-full py-5 bg-indigo-600 text-white rounded-[1.5rem] text-sm font-black uppercase tracking-widest hover:bg-slate-900 disabled:opacity-50 disabled:grayscale transition-all shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-3 active:scale-95"
+               >
+                  {isUploading ? (
+                     <>
+                        <Loader2 className="animate-spin" size={20} />
+                        Syncing Financial Node...
+                     </>
+                  ) : (
+                     <>
+                        <Zap size={20} />
+                        Execute Ledger Sync
+                     </>
+                  )}
+               </button>
+            </div>
+         </div>
+      </div>
+   );
+};
+
+const CollectionCard = ({ title, subtitle, amount, color, pulse, percentage }: any) => (
+   <div className={clsx(
+      "p-8 rounded-[2.5rem] shadow-xl border-l-[10px] transition-all hover:-translate-y-2 relative overflow-hidden h-full flex flex-col justify-center",
+      color === 'indigo' ? "bg-white border-indigo-600 shadow-indigo-100/30" :
+         color === 'emerald' ? "bg-white border-emerald-600 shadow-emerald-100/30" :
+            color === 'blue' ? "bg-white border-blue-600 shadow-blue-100/30" :
+               color === 'amber' ? "bg-white border-amber-600 shadow-amber-100/30" :
+                  "bg-white border-rose-600 shadow-rose-100/30"
+   )}>
+      <div className="absolute top-0 right-0 p-4 opacity-5 translate-x-3 -translate-y-3">
+         <Receipt size={80} />
+      </div>
+      <div className="relative z-10">
+         <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+               {pulse && (
+                  <div className={clsx(
+                     "w-2.5 h-2.5 rounded-full animate-pulse",
+                     color === 'indigo' ? "bg-indigo-600" : color === 'emerald' ? "bg-emerald-600" : "bg-rose-600"
+                  )} />
+               )}
+               <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{title}</p>
+            </div>
+            {percentage !== undefined && (
+               <span className={clsx(
+                  "px-2 py-0.5 rounded-full text-[10px] font-black",
+                  color === 'blue' ? "bg-blue-50 text-blue-600" :
+                     color === 'rose' ? "bg-rose-50 text-rose-600" :
+                        "bg-amber-50 text-amber-600"
+               )}>
+                  {percentage}%
+               </span>
+            )}
+         </div>
+         <p className="text-2xl font-black text-slate-900 mb-1 tracking-tight">{amount}</p>
+         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest opacity-70">{subtitle}</p>
+
+         {percentage !== undefined && (
+            <div className="mt-4 w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+               <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${percentage}%` }}
+                  className={clsx(
+                     "h-full rounded-full",
+                     color === 'blue' ? "bg-blue-600" :
+                        color === 'rose' ? "bg-rose-600" :
+                           "bg-amber-600"
+                  )}
+               />
+            </div>
+         )}
+      </div>
+   </div>
+);
 
 export default FeeCollection;

@@ -27,7 +27,7 @@ import FeeComponents from '../pages/settings/FeeComponents';
 import UserManagement from '../pages/settings/UserManagement';
 
 const Placeholder = ({ title }: { title: string }) => (
-   <div className="flex flex-col items-center justify-center min-h-[60vh] bg-slate-50 dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[2.5rem]">
+   <div className="flex flex-col items-center justify-center min-h-[60vh] bg-slate-50  border-2 border-dashed border-slate-200  rounded-[2.5rem]">
       <h2 className="text-2xl font-black uppercase text-slate-400 tracking-widest">{title}</h2>
       <p className="text-xs font-bold text-slate-500 mt-2">Coming soon in next deployment phase.</p>
    </div>

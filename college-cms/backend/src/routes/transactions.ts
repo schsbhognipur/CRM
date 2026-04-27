@@ -7,7 +7,8 @@ import {
   getExpenseSummary,
   updateExpense,
   deleteExpense,
-  generateVoucherPDF
+  generateVoucherPDF,
+  getCollectionSummary
 } from '../controllers/transactionController';
 import { authenticate } from '../middleware/authenticate';
 import { authorize } from '../middleware/authorize';
@@ -17,6 +18,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/', getTransactions);
+router.get('/summary', getCollectionSummary);
 router.get('/expense-summary', getExpenseSummary);
 router.get('/:id/receipt-pdf', generateReceiptPDF);
 router.get('/:id/voucher-pdf', generateVoucherPDF);

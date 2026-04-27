@@ -18,6 +18,10 @@ export interface StudentData {
   yearOfStudy: number;
   batchYear: number;
   aadharNo?: string;
+  status?: 'ACTIVE' | 'INACTIVE' | 'CANCELLED' | 'PASSED_OUT';
+  discount?: number;
+  discountType?: 'FLAT' | 'PERCENT';
+  discountReason?: string;
 }
 
 export const studentService = {
@@ -38,6 +42,16 @@ export const studentService = {
 
   getAcademicYears: async () => {
     const response = await api.get('/academic-years');
+    return response.data;
+  },
+
+  syncStudentFee: async (id: string) => {
+    const response = await api.post(`/students/${id}/sync-fee`);
+    return response.data;
+  },
+
+  updateStudent: async (id: string, data: Partial<StudentData>) => {
+    const response = await api.put(`/students/${id}`, data);
     return response.data;
   }
 };

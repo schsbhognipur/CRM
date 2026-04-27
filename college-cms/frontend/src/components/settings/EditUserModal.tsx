@@ -85,9 +85,9 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ open, onClose, userToEdit
             initial={{ scale: 0.95, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            className="relative w-full max-w-lg bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-3xl overflow-hidden text-slate-900 dark:text-white"
+            className="relative w-full max-w-lg bg-white  rounded-[2.5rem] shadow-3xl overflow-hidden text-slate-900 "
           >
-            <div className="p-8 border-b dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/30">
+            <div className="p-8 border-b  flex justify-between items-center bg-slate-50 ">
                <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-600/30">
                      <UserCog size={24} />
@@ -97,7 +97,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ open, onClose, userToEdit
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Parameter Mutation Interface</p>
                   </div>
                </div>
-               <button onClick={handleClose} className="p-3 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-2xl transition-all">
+               <button onClick={handleClose} className="p-3 hover:bg-slate-200  rounded-2xl transition-all">
                  <X size={24} className="text-slate-400" />
                </button>
             </div>
@@ -109,7 +109,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ open, onClose, userToEdit
                      <input 
                         {...register('name')}
                         type="text" 
-                        className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-sm outline-none transition-all"
+                        className="w-full px-4 py-4 bg-slate-50  border-2 border-transparent focus:border-indigo-600 rounded-2xl font-bold text-sm outline-none transition-all"
                      />
                      {errors.name && <p className="text-xs text-rose-500 font-bold ml-1 mt-1">{errors.name.message}</p>}
                   </div>
@@ -119,7 +119,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ open, onClose, userToEdit
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Assignment Matrix (Role) *</label>
                         <select 
                            {...register('role')}
-                           className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-transparent focus:border-indigo-600 rounded-2xl font-black text-sm outline-none transition-all uppercase"
+                           className="w-full px-4 py-4 bg-slate-50  border-2 border-transparent focus:border-indigo-600 rounded-2xl font-black text-sm outline-none transition-all uppercase"
                         >
                            <option value="SUPER_ADMIN">SUPER ADMIN</option>
                            <option value="ADMIN">ADMIN</option>
@@ -132,7 +132,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ open, onClose, userToEdit
                   {!canEditRole && userToEdit && (
                      <div>
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Assignment Matrix (Role)</label>
-                        <div className="w-full px-4 py-4 bg-slate-100 dark:bg-slate-800 rounded-2xl font-black text-sm text-slate-500 cursor-not-allowed uppercase border-2 border-transparent">
+                        <div className="w-full px-4 py-4 bg-slate-100  rounded-2xl font-black text-sm text-slate-500 cursor-not-allowed uppercase border-2 border-transparent">
                            {userToEdit.role.replace(/_/g, ' ')}
                         </div>
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 mt-1">Classification modification restricted by access level or self-edit lock.</p>
@@ -141,7 +141,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ open, onClose, userToEdit
                </div>
 
                <div className="flex gap-4 pt-4">
-                  <button type="button" onClick={handleClose} className="flex-1 py-5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-[1.5rem] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-600 transition-all">Cancel</button>
+                  <button type="button" onClick={handleClose} className="flex-1 py-5 bg-slate-100  text-slate-600  rounded-[1.5rem] font-black uppercase tracking-widest hover:bg-slate-200  transition-all">Cancel</button>
                   <button 
                      type="submit" 
                      disabled={isSubmitting}

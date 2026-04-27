@@ -25,7 +25,7 @@ const Sidebar = () => {
          end={exact}
          className={({ isActive }) => clsx(
             "flex items-center gap-3 px-4 py-3 rounded-xl transition-all relative overflow-hidden group",
-            isActive ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30" : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-indigo-600"
+            isActive ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30" : "text-slate-500 hover:bg-indigo-50/50 hover:text-indigo-600"
          )}
       >
          {({ isActive }) => (
@@ -38,14 +38,14 @@ const Sidebar = () => {
    );
 
    return (
-      <div className="w-72 bg-white dark:bg-slate-900 border-r dark:border-slate-800 h-screen flex flex-col pt-6 pb-6 shadow-2xl relative z-40">
-         <div className="px-8 mb-10 flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-xl shadow-indigo-600/30">
-               <span className="font-black">CM</span>
+      <div className="w-80 bg-white border-r border-slate-100 h-screen flex flex-col pt-8 pb-6 shadow-[10px_0_40px_-20px_rgba(0,0,0,0.05)] relative z-40">
+         <div className="px-6 mb-12 flex flex-col items-center text-center gap-4">
+            <div className="w-24 h-24 flex items-center justify-center p-2 bg-slate-50 rounded-3xl border border-slate-100 shadow-sm">
+               <img src="/src/assets/logo.png" className="w-full h-full object-contain" alt="SCHS" />
             </div>
             <div>
-               <h1 className="text-lg font-black tracking-tighter uppercase text-slate-900 dark:text-white leading-none">Sanskriti</h1>
-               <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">College Matrix Node</span>
+               <h1 className="text-3xl font-black tracking-tighter uppercase text-slate-900 leading-tight">SCHS</h1>
+               <span className="text-sm font-black text-indigo-600 uppercase tracking-[0.3em] block mt-1">Pharmacy</span>
             </div>
          </div>
 
@@ -61,7 +61,7 @@ const Sidebar = () => {
                   <div className="pt-2">
                      <button
                         onClick={() => setReportsOpen(!reportsOpen)}
-                        className="w-full flex items-center justify-between px-4 py-3 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all group"
+                        className="w-full flex items-center justify-between px-4 py-3 text-slate-500 hover:bg-slate-100 rounded-xl transition-all group"
                      >
                         <div className="flex items-center gap-3">
                            <BarChart2 size={20} className="group-hover:text-indigo-600" />
@@ -71,7 +71,7 @@ const Sidebar = () => {
                      </button>
                      <AnimatePresence>
                         {reportsOpen && (
-                           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-slate-50 dark:bg-slate-800/50 rounded-xl mt-1">
+                           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-slate-50 rounded-xl mt-1">
                               <div className="pr-2 pl-6 py-2 space-y-1">
                                  <NavItem to="/reports/day-book" icon={BarChart2} label="Day Book" />
                                  <NavItem to="/reports/fee-collection" icon={BarChart2} label="Fee Roster" />
@@ -89,7 +89,7 @@ const Sidebar = () => {
                <div className="pt-2">
                   <button
                      onClick={() => setSettingsOpen(!settingsOpen)}
-                     className="w-full flex items-center justify-between px-4 py-3 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all group"
+                     className="w-full flex items-center justify-between px-4 py-3 text-slate-500 hover:bg-slate-100 rounded-xl transition-all group"
                   >
                      <div className="flex items-center gap-3">
                         <Settings size={20} className="group-hover:text-indigo-600" />
@@ -99,7 +99,7 @@ const Sidebar = () => {
                   </button>
                   <AnimatePresence>
                      {settingsOpen && (
-                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-slate-50 dark:bg-slate-800/50 rounded-xl mt-1">
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-slate-50 rounded-xl mt-1">
                            <div className="pr-2 pl-6 py-2 space-y-1">
                               <NavItem to="/settings/academic-years" icon={Settings} label="Timelines" />
                               <NavItem to="/settings/fee-structures" icon={Settings} label="Fee-Structures" />
@@ -113,18 +113,18 @@ const Sidebar = () => {
             )}
          </div>
 
-         <div className="px-6 mt-auto pt-6 border-t dark:border-slate-800">
-            <div className="flex items-center gap-3 bg-slate-100 dark:bg-slate-800 p-3 rounded-2xl relative group">
+         <div className="px-6 mt-auto pt-6 border-t border-slate-100">
+            <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl relative group border border-slate-100">
                <div className={clsx("w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-xl text-xs font-black", roleColor)}>
                   {initials}
                </div>
                <div className="flex-1 min-w-0 pr-2">
-                  <p className="text-xs font-black uppercase text-slate-900 dark:text-white truncate">{user?.name}</p>
+                  <p className="text-xs font-black uppercase text-slate-900 truncate">{user?.name}</p>
                   <p className="text-[9px] font-black uppercase text-indigo-500 tracking-widest truncate">{user?.role.replace('_', ' ')}</p>
                </div>
                <button
                   onClick={logout}
-                  className="absolute right-[-10px] top-1/2 -translate-y-1/2 w-10 h-10 bg-rose-50 dark:bg-rose-900/30 text-rose-600 rounded-full flex items-center justify-center shadow-lg shadow-rose-600/20 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 translate-x-4 transition-all hover:bg-rose-500 hover:text-white"
+                  className="absolute right-[-10px] top-1/2 -translate-y-1/2 w-10 h-10 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center shadow-lg shadow-rose-600/20 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 translate-x-4 transition-all hover:bg-rose-500 hover:text-white"
                   title="Sever Uplink (Logout)"
                >
                   <LogOut size={16} />
