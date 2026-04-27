@@ -39,8 +39,12 @@ export const getTransactions = async (req: Request, res: Response) => {
         { student: { enrollmentNo: { contains: String(search), mode: 'insensitive' } } }
       ]
     }),
-    ...(courseId && { student: { courseId: String(courseId) } }),
-    ...(academicYearId && { student: { academicYearId: String(academicYearId) } }),
+    ...((courseId || academicYearId) && {
+      student: {
+        ...(courseId && { courseId: String(courseId) }),
+        ...(academicYearId && { academicYearId: String(academicYearId) })
+      }
+    }),
     ...(dateFrom || dateTo ? {
       transactionDate: {
         ...(dateFrom && { gte: new Date(String(dateFrom)) }),
