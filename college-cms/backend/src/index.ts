@@ -28,6 +28,7 @@ import { authorize } from './middleware/authorize';
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy for Render and Rate Limiting
 const PORT = process.env.PORT || 5000;
 
 // Security Middleware
@@ -46,7 +47,11 @@ app.use(cors({
   origin: (origin, callback) => {
     // allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+    if (
+      allowedOrigins.indexOf(origin) !== -1 || 
+      origin.endsWith('.vercel.app') ||
+      process.env.NODE_ENV === 'development'
+    ) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
