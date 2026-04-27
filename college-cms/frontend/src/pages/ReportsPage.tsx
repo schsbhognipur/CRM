@@ -48,7 +48,7 @@ const ReportsPage = () => {
 
    const exportExcel = () => {
       const token = getAccessToken();
-      window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:5002/api'}/reports/${activeReport}/excel?token=${token}`, '_blank');
+      window.open(`${import.meta.env.VITE_API_URL}/reports/${activeReport}/excel?token=${token}`, '_blank');
    };
 
    return (

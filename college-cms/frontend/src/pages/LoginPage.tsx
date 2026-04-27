@@ -21,7 +21,7 @@ const LoginPage = () => {
     setBackendStatus('Checking');
     try {
       // Use raw fetch to avoid axios interceptors during health check
-      const baseUrl = api.defaults.baseURL || 'http://localhost:5002/api';
+      const baseUrl = api.defaults.baseURL || import.meta.env.VITE_API_URL;
       const response = await fetch(`${baseUrl}/health`, { method: 'GET' });
       if (response.ok || response.status === 404) {
         // Even a 404 means the server reacted, so it's "Online"

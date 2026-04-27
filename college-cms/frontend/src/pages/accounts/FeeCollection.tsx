@@ -96,7 +96,7 @@ const FeeCollection = () => {
 
    const downloadReceipt = (txId: string) => {
       const token = getAccessToken();
-      window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:5002/api'}/transactions/${txId}/receipt-pdf?token=${token}`, '_blank');
+      window.open(`${import.meta.env.VITE_API_URL}/transactions/${txId}/receipt-pdf?token=${token}`, '_blank');
    };
 
    // Calculate Percentages
